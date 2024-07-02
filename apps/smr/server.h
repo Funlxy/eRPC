@@ -153,6 +153,7 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
 }
 
 void init_erpc(AppContext *c, erpc::Nexus *nexus) {
+  // 这里注册三个？对应不同的ReqType
   nexus->register_req_func(static_cast<uint8_t>(ReqType::kRequestVote),
                            requestvote_handler);
 
@@ -168,6 +169,7 @@ void init_erpc(AppContext *c, erpc::Nexus *nexus) {
   c->rpc->retry_connect_on_invalid_rpc_id_ = true;
 
   // Create a session to each Raft server, excluding self
+  // server 与 server相连，不与client相连
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
     if (i == FLAGS_process_id) continue;
     std::string uri = erpc::get_uri_for_process(i);
@@ -178,8 +180,10 @@ void init_erpc(AppContext *c, erpc::Nexus *nexus) {
     assert(c->conn_vec[i].session_num >= 0);
   }
 
+
+  // 等待连接
   while (c->num_sm_resps != FLAGS_num_raft_servers - 1) {
-    c->rpc->run_event_loop(200);  // 200 ms
+    printf("sm_resps = %d\n",c->num_sm_resps);
     if (ctrl_c_pressed == 1) {
       delete c->rpc;
       exit(0);

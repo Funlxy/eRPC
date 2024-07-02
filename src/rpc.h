@@ -741,7 +741,7 @@ class Rpc {
                sslot->progress_str().c_str(), item.drop_ ? " Drop." : "");
 
     tx_batch_i_++;
-    if (tx_batch_i_ == TTr::kPostlist) do_tx_burst_st();
+    if (tx_batch_i_ == TTr::kPostlist) do_tx_burst_st(); // 一次发送这么多？
   }
 
   /// Enqueue a control packet for tx_burst. ctrl_msgbuf can be reused after
@@ -843,7 +843,8 @@ class Rpc {
                                          const pkthdr_t *pkthdr) {
     size_t offset = pkt_idx * TTr::kMaxDataPerPkt;
     size_t to_copy =
-        (std::min)(TTr::kMaxDataPerPkt, pkthdr->msg_size_ - offset);
+        (std::min)(TTr::kMaxDataPerPkt, pkthdr->msg_size_ - offset); // 例如最后一个包的data大小并不是MTU
+    
     memcpy(&msgbuf->buf_[offset], pkthdr + 1, to_copy);  // From end of pkthdr
   }
 

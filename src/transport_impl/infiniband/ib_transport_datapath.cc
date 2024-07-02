@@ -1,3 +1,4 @@
+#include "util/logger.h"
 #ifdef ERPC_INFINIBAND
 
 #include "ib_transport.h"
@@ -48,7 +49,6 @@ void IBTransport::tx_burst(const tx_burst_item_t* tx_burst_arr,
       sgl[1].length =
           (std::min)(kMaxDataPerPkt, msg_buffer->data_size_ - offset);
       sgl[1].lkey = msg_buffer->buffer_.lkey_;
-
       wr.num_sge = 2;
     }
 

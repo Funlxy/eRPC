@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <iostream>
 #include "smr.h"
 
 // Change the leader to a different Raft server that we are connected to
@@ -62,6 +63,8 @@ void send_req_one(AppContext *c) {
   }
 
   connection_t &conn = c->conn_vec[c->client.leader_idx];
+
+  // 发送
   c->rpc->enqueue_request(
       conn.session_num, static_cast<uint8_t>(ReqType::kClientReq),
       &c->client.req_msgbuf, &c->client.resp_msgbuf, client_cont, nullptr);
@@ -167,7 +170,7 @@ void client_func(erpc::Nexus *nexus, AppContext *c) {
   // Raft client: Create session to each Raft server
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
     std::string uri = erpc::get_uri_for_process(i);
-    printf("smr: Creating session to %s, index = %zu.\n", uri.c_str(), i);
+    printf("client smr: Creating session to %s, index = %zu.\n", uri.c_str(), i);
 
     c->conn_vec[i].session_idx = i;
     c->conn_vec[i].session_num = c->rpc->create_session(uri, kAppServerRpcId);
