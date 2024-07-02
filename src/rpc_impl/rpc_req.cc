@@ -1,8 +1,5 @@
-#include <cstdint>
-#include <iostream>
 #include <stdexcept>
 
-#include "pkthdr.h"
 #include "rpc.h"
 
 namespace erpc {
@@ -153,7 +150,7 @@ void Rpc<TTr>::process_small_req_st(SSlot *sslot, pkthdr_t *pkthdr) {
     return;
   }
 }
-pkthdr_t* last;
+
 template <class TTr>
 void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
   assert(in_dispatch());
@@ -219,22 +216,14 @@ void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
     // cur_req_num as unavailable.
     bury_resp_msgbuf_server_st(sslot);
 
-    // 这里分配了。
     req_msgbuf = alloc_msg_buffer(pkthdr->msg_size_);
     assert(req_msgbuf.buf_ != nullptr);
 
     // Update sslot tracking
     sslot->cur_req_num_ = pkthdr->req_num_;
     sslot->server_info_.num_rx_ = 1;
-    last = const_cast<pkthdr_t*>(pkthdr);
   } else {
-    //This is not the first packet for this request
-    // auto cur = const_cast<pkthdr_t*>(pkthdr);
-    // if ( cur != last+TTr::kMaxDataPerPkt+sizeof(pkthdr_t)){
-    //     std::cout<< last->dest_session_num_ << " " << cur->dest_session_num_ << std::endl;
-    //     std::cout<< cur << " " << last << std::endl;
-    //     last = cur;
-    // }
+    // This is not the first packet for this request
     sslot->server_info_.num_rx_++;
   }
 
@@ -243,11 +232,8 @@ void Rpc<TTr>::process_large_req_one_st(SSlot *sslot, const pkthdr_t *pkthdr) {
     enqueue_cr_st(sslot, pkthdr);
   }
 
-  // 这里copy
   copy_data_to_msgbuf(&req_msgbuf, pkthdr->pkt_num_, pkthdr);  // Omits header
 
-
-  // 这里等到收到所有的包
   // Invoke the request handler iff we have all the request packets
   if (sslot->server_info_.num_rx_ != req_msgbuf.num_pkts_) return;
 

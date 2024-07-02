@@ -81,6 +81,7 @@ static std::string get_hostname_for_process(size_t process_i) {
   rt_assert(is_valid_process_line(line), "Invalid process line " + line);
 
   std::vector<std::string> split_vec = split(line, ' ');
+  printf("get rm_hostname: %s\n",split_vec[0].c_str());
   return split_vec[0];
 }
 
