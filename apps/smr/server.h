@@ -183,7 +183,7 @@ void init_erpc(AppContext *c, erpc::Nexus *nexus) {
 
   // 等待连接
   while (c->num_sm_resps != FLAGS_num_raft_servers - 1) {
-    printf("sm_resps = %d\n",c->num_sm_resps);
+    if(c->num_sm_resps!=0)printf("sm_resps = %d\n",c->num_sm_resps);
     if (ctrl_c_pressed == 1) {
       delete c->rpc;
       exit(0);

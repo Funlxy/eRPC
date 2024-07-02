@@ -1,20 +1,13 @@
-#include <cstddef>
-#include "pkthdr.h"
 #include "rpc.h"
-#include "util/logger.h"
-#include <cstdint>
-#include <iostream>
+
 namespace erpc {
-size_t total = 0;
-pkthdr_t* lasts = nullptr;
+
 template <class TTr>
 void Rpc<TTr>::process_comps_st() {
   assert(in_dispatch());
   const size_t num_pkts = transport_->rx_burst();
   if (num_pkts == 0) return;
-    total+=num_pkts;
 
-  // ERPC_INFO("recv %ld packet(s) in poll_cq, total = %ld\n",num_pkts,total);
   // Measure RX burst size
   dpath_stat_inc(dpath_stats_.rx_burst_calls_, 1);
   dpath_stat_inc(dpath_stats_.pkts_rx_, num_pkts);
@@ -24,23 +17,8 @@ void Rpc<TTr>::process_comps_st() {
 
   for (size_t i = 0; i < num_pkts; i++) {
     auto *pkthdr = reinterpret_cast<pkthdr_t *>(rx_ring_[rx_ring_head_]);
-    // 1088
-    if(lasts==nullptr) lasts = pkthdr;
-    else{
-      
-      if ( uintptr_t(pkthdr) != uintptr_t(lasts)+1088){
-          std::cout<< lasts->dest_session_num_ << " " << pkthdr->dest_session_num_ << std::endl;
-          std::cout<< uintptr_t(pkthdr) << " " << uintptr_t(lasts) << std::endl;
-          std::cout << "11111---------------\n";
-      }
-      if(lasts->dest_session_num_!=pkthdr->dest_session_num_){
-          std::cout<< lasts->dest_session_num_ << " " << pkthdr->dest_session_num_ << std::endl;
-          std::cout<< uintptr_t(pkthdr) << " " << uintptr_t(lasts) << std::endl;
-
-      }
-      lasts = pkthdr;
-    }
     rx_ring_head_ = (rx_ring_head_ + 1) % Transport::kNumRxRingEntries;
+
     // XXX: This acts as a stopgap function to filter non-eRPC packets, like
     // broadcast/ARP packets.
     if (unlikely(!pkthdr->check_magic())) {
@@ -80,7 +58,7 @@ void Rpc<TTr>::process_comps_st() {
     ERPC_TRACE(
         "Rpc %u, lsn %u (%s): RX %s.\n", rpc_id_, session->local_session_num_,
         session->get_remote_hostname().c_str(), pkthdr->to_string().c_str());
-    // ERPC_INFO("session num = %d, size = %d\n",pkthdr->dest_session_num_,pkthdr->msg_size_);
+
     const size_t sslot_i = pkthdr->req_num_ % kSessionReqWindow;  // Bit shift
     SSlot *sslot = &session->sslot_arr_[sslot_i];
 
