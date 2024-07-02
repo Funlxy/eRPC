@@ -1,5 +1,5 @@
 #include "rpc.h"
-
+#include <iostream>
 namespace erpc {
 
 template <class TTr>
@@ -14,7 +14,6 @@ void Rpc<TTr>::run_event_loop_do_one_st() {
   // next to ev_loop_tsc stamping.
   ev_loop_tsc_ = dpath_rdtsc();
   process_comps_st();  // RX
-
   process_credit_stall_queue_st();    // TX
   if (kCcPacing) process_wheel_st();  // TX
 

@@ -240,13 +240,14 @@ void IBTransport::init_recvs(uint8_t **rx_ring) {
     recv_sgl[i].lkey = ring_extent.lkey_;
     recv_sgl[i].addr = reinterpret_cast<uint64_t>(&buf[offset]);
 
+    // 自定义的标志符
     recv_wr[i].wr_id = recv_sgl[i].addr + kGRHBytes;  // For quick prefetch
     recv_wr[i].sg_list = &recv_sgl[i];
     recv_wr[i].num_sge = 1;
 
     // Circular link
     recv_wr[i].next = (i < kRQDepth - 1) ? &recv_wr[i + 1] : &recv_wr[0];
-    rx_ring[i] = &buf[offset + kGRHBytes];  // RX ring entry
+    rx_ring[i] = &buf[offset + kGRHBytes];  // RX ring entry,跳过了GRH
   }
 
   // Fill the RECV queue. post_recvs() can use fast RECV and therefore not

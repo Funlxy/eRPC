@@ -6,13 +6,15 @@
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  signal(SIGINT, ctrl_c_handler);
+  signal(SIGINT, ctrl_c_handler); // ctrl_c中止
   erpc::rt_assert(FLAGS_num_raft_servers > 0 &&
                   FLAGS_num_raft_servers % 2 == 1);
 
   erpc::Nexus nexus(erpc::get_uri_for_process(FLAGS_process_id),
                     FLAGS_numa_node, 0);
 
+
+  // 得到映射关系
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
     node_id_to_name_map[get_raft_node_id_for_process(i)] =
         erpc::trim_hostname(erpc::get_uri_for_process(i));
@@ -47,7 +49,7 @@ int main(int argc, char **argv) {
     AppContext c;
     c.conn_vec.resize(FLAGS_num_raft_servers);  // Both clients and servers
     for (auto &peer_conn : c.conn_vec) peer_conn.c = &c;
-
+    printf("this process_id = %ld\n", FLAGS_process_id);
     auto thread =
         std::thread(is_raft_server() ? server_func : client_func, &nexus, &c);
     erpc::bind_to_core(thread, FLAGS_numa_node, 2);

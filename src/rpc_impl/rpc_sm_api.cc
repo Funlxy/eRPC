@@ -11,6 +11,7 @@ namespace erpc {
 
 // This function is not on the critical path and is exposed to the user,
 // so the args checking is always enabled.
+// 用在用户端调用create_session.
 template <class TTr>
 int Rpc<TTr>::create_session_st(std::string remote_uri, uint8_t rem_rpc_id) {
   char issue_msg[kMaxIssueMsgLen];  // The basic issue message

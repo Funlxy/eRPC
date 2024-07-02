@@ -14,6 +14,9 @@ export MLX5_SHUT_UP_BF=0
 export MLX_QP_ALLOC_TYPE="HUGE"
 export MLX_CQ_ALLOC_TYPE="HUGE"
 
+
+# do.sh process_id numa_node 
+# in smr 0-2 is server , 3 is client
 # Check arguments
 if [ "$#" -gt 3 ] || [ "$#" -lt 2 ]; then
   blue "Illegal args. Usage: do.sh [process_id] [NUMA node] <gdb>"

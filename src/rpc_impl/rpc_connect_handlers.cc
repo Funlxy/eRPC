@@ -3,6 +3,7 @@
  * @brief Handlers for session management connect requests and responses.
  */
 #include "rpc.h"
+#include "util/logger.h"
 
 namespace erpc {
 
@@ -78,7 +79,7 @@ void Rpc<TTr>::handle_connect_req_st(const SmPkt &sm_pkt) {
   auto *session = new Session(Session::Role::kServer, sm_pkt.uniq_token_,
                               get_freq_ghz(), transport_->get_bandwidth());
   session->state_ = SessionState::kConnected;
-
+  ERPC_INFO("CREATE NEW SESSION\n");
   for (size_t i = 0; i < kSessionReqWindow; i++) {
     MsgBuffer &msgbuf_i = session->sslot_arr_[i].pre_resp_msgbuf_;
     msgbuf_i = alloc_msg_buffer(pre_resp_msgbuf_size_);
