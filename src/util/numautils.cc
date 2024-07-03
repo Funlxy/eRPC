@@ -35,10 +35,11 @@ std::vector<size_t> get_lcores_for_numa_node(size_t numa_node) {
 
 void bind_to_core(std::thread &thread, size_t numa_node,
                   size_t numa_local_index) {
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
+  cpu_set_t cpuset; // cpu集合
+  CPU_ZERO(&cpuset); // 清空
   rt_assert(numa_node <= kMaxNumaNodes, "Invalid NUMA node");
 
+  // 得到位于numa_node上的所有cpu的集合
   const std::vector<size_t> lcore_vec = get_lcores_for_numa_node(numa_node);
   if (numa_local_index >= lcore_vec.size()) {
     ERPC_ERROR(
@@ -51,6 +52,7 @@ void bind_to_core(std::thread &thread, size_t numa_node,
 
   const size_t global_index = lcore_vec.at(numa_local_index);
 
+  // 指定核心添加到CPU集合中
   CPU_SET(global_index, &cpuset);
   int rc = pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t),
                                   &cpuset);
