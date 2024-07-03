@@ -40,7 +40,7 @@ struct wire_req_t {
   size_t req_type;
   union {
     struct {
-      uint8_t key[MtIndex::kKeySize];
+      uint8_t key[MtIndex::kKeySize]; // 16*8 = 128bits = 2*64
     } point_req;
 
     struct {

@@ -37,17 +37,20 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
     return;
   }
 
-  MtIndex *mti = c->server.mt_index;
+  MtIndex *mti = c->server.mt_index; // 得到index
   threadinfo_t *ti = c->server.ti_arr[etid];
   assert(mti != nullptr && ti != nullptr);
 
   const auto *req_msgbuf = req_handle->get_req_msgbuf();
   assert(req_msgbuf->get_data_size() == sizeof(wire_req_t));
 
+  // 得到req.
   auto *req = reinterpret_cast<const wire_req_t *>(req_msgbuf->buf_);
   assert(req->req_type == kAppPointReqType);
+
+
   uint8_t key_copy[MtIndex::kKeySize];  // mti->get() modifies key
-  memcpy(key_copy, req->point_req.key, MtIndex::kKeySize);
+  memcpy(key_copy, req->point_req.key, MtIndex::kKeySize); // 这里memcpy了？
 
   auto *resp =
       reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
@@ -108,6 +111,8 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
   // Generate a random request
   wire_req_t req;
   const size_t rand_key_index = c->fastrand_.next_u32() % FLAGS_num_keys;
+
+  // 请求的key为什么要是两个u64的？
   key_gen(rand_key_index, req.point_req.key);
 
   if (c->fastrand_.next_u32() % 100 < FLAGS_range_req_percent) {
@@ -211,6 +216,7 @@ void client_print_stats(AppContext &c) {
   c.client.tput_timer.reset();
 }
 
+// 每个创建一个新的RPC
 void client_thread_func(size_t thread_id, app_stats_t *app_stats,
                         erpc::Nexus *nexus) {
   AppContext c;
@@ -314,7 +320,7 @@ void masstree_populate_func(size_t thread_id, MtIndex *mti, threadinfo_t *ti,
         fprintf(stderr, "%zu ", key_64[j]);
       }
       fprintf(stderr, "] Value: [");
-      for (size_t j = 0; j < MtIndex::kValueSize; j++) {
+      for (size_t j = 0; j < MtIndex::kValueSize; j++) { //68
         fprintf(stderr, "%u ", value[j]);
       }
       fprintf(stderr, "]\n");
@@ -341,9 +347,10 @@ void masstree_populate_func(size_t thread_id, MtIndex *mti, threadinfo_t *ti,
 }
 
 int main(int argc, char **argv) {
-  signal(SIGINT, ctrl_c_handler);
+  signal(SIGINT, ctrl_c_handler); // ctrl_c_handler取消
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   erpc::rt_assert(FLAGS_req_window <= kAppMaxReqWindow, "Invalid req window");
+  // range scan的百分比
   erpc::rt_assert(FLAGS_range_req_percent <= 100, "Invalid range req percent");
 
   if (FLAGS_num_server_bg_threads == 0) {
@@ -426,8 +433,10 @@ int main(int argc, char **argv) {
     erpc::Nexus nexus(erpc::get_uri_for_process(FLAGS_process_id),
                       FLAGS_numa_node, FLAGS_num_server_bg_threads);
 
+    // clinet 线程数
     std::vector<std::thread> thread_arr(FLAGS_num_client_threads);
     auto *app_stats = new app_stats_t[FLAGS_num_client_threads];
+    // 线程启动
     for (size_t i = 0; i < FLAGS_num_client_threads; i++) {
       thread_arr[i] = std::thread(client_thread_func, i, app_stats, &nexus);
       erpc::bind_to_core(thread_arr[i], FLAGS_numa_node, i);
