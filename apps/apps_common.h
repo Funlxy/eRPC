@@ -5,6 +5,7 @@
 #pragma once
 
 #include <gflags/gflags.h>
+#include <cstdio>
 #include <set>
 #include "rpc.h"
 #include "util/latency.h"
@@ -96,7 +97,6 @@ class TmpStat {
     printf("Writing stats to file %s\n", filename.c_str());
     stat_file_ = fopen(filename.c_str(), "w");
     erpc::rt_assert(stat_file_ != nullptr, "Failed to open stat file");
-
     fprintf(stat_file_, "%s\n", header.c_str());
     fflush(stat_file_);
   }

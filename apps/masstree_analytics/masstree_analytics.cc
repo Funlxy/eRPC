@@ -1,5 +1,6 @@
 #include "masstree_analytics.h"
 #include <signal.h>
+#include <cstdio>
 #include <cstring>
 #include "mica/util/cityhash/city.h"
 #include "util/autorun_helpers.h"
@@ -205,6 +206,7 @@ void client_print_stats(AppContext &c) {
       accum += c.client.app_stats[i];
     }
     accum.lat_us_50 /= FLAGS_num_client_threads;
+    accum.lat_us_90 /= FLAGS_num_client_threads;
     accum.lat_us_99 /= FLAGS_num_client_threads;
     c.tmp_stat_->write(accum.to_string());
   }
