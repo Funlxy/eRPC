@@ -126,18 +126,6 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   masstree::Req req;
   req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   assert(req.id()==1);
-  // assert(req_msgbuf->get_data_size() == sizeof(wire_req_t));
-
-  // // 得到req.
-  // auto *req = reinterpret_cast<const wire_req_t *>(req_msgbuf->buf_);
-  // assert(req->req_type == kAppPointReqType);
-
-
-  // uint8_t key_copy[MtIndex::kKeySize];  // mti->get() modifies key
-  // memcpy(key_copy, req->point_req.key, MtIndex::kKeySize); // 这里memcpy了？
-
-  // auto *resp =
-  //     reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
   masstree::Resp resp;
   std::string value;
   const bool success = mti->get(req.key(), value, ti);
@@ -486,7 +474,7 @@ int main(int argc, char **argv) {
 
       // 这里读取.
       std::vector<std::pair<std::string,std::string>> server_workload;
-      load_workload("./ycsb_load.txt", server_workload);
+      load_workload("./data/ycsb_load.txt", server_workload);
       // std::vector<size_t> shuffled_key_indices;
       // shuffled_key_indices.reserve(FLAGS_num_keys);
 
@@ -538,7 +526,7 @@ int main(int argc, char **argv) {
   } 
   else { // 客户端
     work_load.resize(FLAGS_num_client_threads);
-    int ret = init_workload("ycsb_run.txt");
+    int ret = init_workload("./data/ycsb_run.txt");
     if(ret==-1){
       printf("error!\n");
       exit(-1);
