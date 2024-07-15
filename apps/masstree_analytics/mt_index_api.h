@@ -4,7 +4,6 @@
 #define MT_INDEX_API_H
 
 // Masstree is a system directory
-#include <cstdio>
 #include <json.hh>
 #include <kvrow.hh>
 #include <kvthread.hh>
@@ -14,7 +13,6 @@
 #include <masstree_scan.hh>
 #include <masstree_tcursor.hh>
 #include <query_masstree.hh>
-#include <string>
 
 typedef threadinfo threadinfo_t;
 
@@ -23,7 +21,7 @@ class MtIndex {
   static constexpr size_t kKeySize = 16;  /// Index key size in bytes
   static_assert(sizeof(MtIndex::kKeySize) % sizeof(uint64_t) == 0, "");
 
-  static constexpr size_t kValueSize = 64;  /// Index value size in bytes
+  static constexpr size_t kValueSize = 68;  /// Index value size in bytes
   static_assert(sizeof(MtIndex::kValueSize) % sizeof(uint32_t) == 0, "");
 
   MtIndex() {}
@@ -42,16 +40,10 @@ class MtIndex {
   }
 
   // Upsert
-  inline void put(std::string key, std::string value, threadinfo_t *ti) {
-    // printf("befroe:%zu\n",reinterpret_cast<uint64_t *>(key)[0]);
-    //     printf("befroe:%zu\n",reinterpret_cast<uint64_t *>(key)[1]);
+  inline void put(uint8_t *key, uint8_t *value, threadinfo_t *ti) {
+    swap_endian(key);
+    Str key_str(reinterpret_cast<const char *>(key), kKeySize);
 
-    // swap_endian(key); 
-    // printf("after:%zu\n",reinterpret_cast<uint64_t *>(key)[0]);
-    // printf("after:%zu\n",reinterpret_cast<uint64_t *>(key)[1]);
-
-
-    Str key_str(key.c_str(), key.size());
     Masstree::default_table::cursor_type lp(table_->table(), key_str);
     const bool found = lp.find_insert(*ti);
     if (!found) {
@@ -64,18 +56,19 @@ class MtIndex {
       lp.value()->deallocate_rcu(*ti);
     }
 
-    Str value_str(value.c_str(), value.size());
+    Str value_str(reinterpret_cast<const char *>(value), kValueSize);
     lp.value() = row_type::create1(value_str, qtimes_.ts, *ti);
     lp.finish(1, *ti);
   }
 
   // Get (unique value)
-  inline bool get(std::string key, std::string& value, threadinfo_t *ti) {
-    Str key_str(key.c_str(), key.size());
+  inline bool get(uint8_t *key, uint8_t *value, threadinfo_t *ti) {
+    swap_endian(key);
+    Str key_str(reinterpret_cast<const char *>(key), kKeySize);
 
     Masstree::default_table::unlocked_cursor_type lp(table_->table(), key_str);
     const bool found = lp.find_unlocked(*ti);
-    if (found) value = std::string(lp.value()->col(0).s,kValueSize);
+    if (found) memcpy(value, lp.value()->col(0).s, kValueSize);
     return found;
   }
 

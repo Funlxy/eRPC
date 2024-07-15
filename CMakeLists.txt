@@ -3,7 +3,7 @@ project(eRPC)
 
 include(CMakeDependentOption)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -233,10 +233,7 @@ if(NOT PMEM_LIB)
 else()
   set(PMEM "pmem")
 endif()
-find_package(Protobuf CONFIG)
-if(NOT Protobuf_FOUND)
-  find_package(Protobuf REQUIRED)
-endif()
+
 if(APP STREQUAL "smr")
   include_directories(mica/src)
   add_subdirectory(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
@@ -255,9 +252,8 @@ elseif(APP STREQUAL "masstree_analytics")
   add_definitions(-include ${CMAKE_SOURCE_DIR}/third_party/masstree-beta/config.h)
   set(APP_ADDITIONAL_SOURCES
     apps/masstree_analytics/mt_index_api.cc
-    mica/src/mica/util/cityhash/city_mod.cc
-    apps/masstree_analytics/protobuf/message.pb.cc)
-  set(LIBRARIES ${LIBRARIES} masstree protobuf::libprotobuf)
+    mica/src/mica/util/cityhash/city_mod.cc)
+  set(LIBRARIES ${LIBRARIES} masstree)
   include_directories(mica/src)
 elseif(APP STREQUAL "mica_test")
   include_directories(mica/src)

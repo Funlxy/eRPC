@@ -3,7 +3,6 @@
 
 #include <gflags/gflags.h>
 #include <signal.h>
-#include <string>
 #include "../apps_common.h"
 #include "mt_index_api.h"
 #include "rpc.h"
@@ -17,9 +16,7 @@ static constexpr size_t kAppEvLoopMs = 500;
 
 // Workload params
 static constexpr bool kBypassMasstree = false;  // Bypass Masstree?
-static constexpr size_t kAppMaxReqWindow = 16;  // Max pending reqs per clientstatic constexpr bool kBypassMasstree = false;  // Bypass Masstree?
-static constexpr size_t kMaxDataSize = 1024;
-
+static constexpr size_t kAppMaxReqWindow = 16;  // Max pending reqs per client
 
 // Globals
 volatile sig_atomic_t ctrl_c_pressed = 0;
@@ -42,61 +39,55 @@ bool is_server() { return FLAGS_process_id == 0; }
 struct wire_req_t {
   size_t req_type;
   union {
-    // struct {
-    //   uint8_t key[MtIndex::kKeySize]; // 16*8 = 128bits = 2*64
-    // } point_req;
-    struct{
-      std::string key;
-    } point_req;
-    // struct {
-    //   uint8_t key[MtIndex::kKeySize];
-    //   size_t range;  // The max number of keys after key to sum up
-    // } range_req;
     struct {
-      std::string key;
+      uint8_t key[MtIndex::kKeySize]; // 16*8 = 128bits = 2*64
+    } point_req;
+
+    struct {
+      uint8_t key[MtIndex::kKeySize];
       size_t range;  // The max number of keys after key to sum up
     } range_req;
   };
 
-  // std::string to_string() const {
-  //   std::ostringstream ret;
-  //   ret << "[Type " << (req_type == kAppPointReqType ? "point" : "range")
-  //       << ", key: ";
-  //   if (req_type == kAppPointReqType) {
-  //     const uint64_t *key_64 =
-  //         reinterpret_cast<const uint64_t *>(point_req.key);
-  //     for (size_t i = 0; i < MtIndex::kKeySize / sizeof(uint64_t); i++) {
-  //       ret << std::to_string(key_64[i]) << " ";
-  //     }
-  //   } else {
-  //     const uint64_t *key_64 =
-  //         reinterpret_cast<const uint64_t *>(point_req.key);
-  //     for (size_t i = 0; i < MtIndex::kKeySize; i++) {
-  //       ret << std::to_string(key_64[i]) << " ";
-  //     }
-  //   }
-  //   ret << "]";
-  //   return ret.str();
-  // }
+  std::string to_string() const {
+    std::ostringstream ret;
+    ret << "[Type " << (req_type == kAppPointReqType ? "point" : "range")
+        << ", key: ";
+    if (req_type == kAppPointReqType) {
+      const uint64_t *key_64 =
+          reinterpret_cast<const uint64_t *>(point_req.key);
+      for (size_t i = 0; i < MtIndex::kKeySize / sizeof(uint64_t); i++) {
+        ret << std::to_string(key_64[i]) << " ";
+      }
+    } else {
+      const uint64_t *key_64 =
+          reinterpret_cast<const uint64_t *>(point_req.key);
+      for (size_t i = 0; i < MtIndex::kKeySize; i++) {
+        ret << std::to_string(key_64[i]) << " ";
+      }
+    }
+    ret << "]";
+    return ret.str();
+  }
 };
 
 enum class RespType : size_t { kFound, kNotFound };
 struct wire_resp_t {
   RespType resp_type;
   union {
-    std::string value;
+    uint8_t value[MtIndex::kValueSize];
     size_t range_count;  // The range sum for range queries
   };
 
-  // std::string to_string() const {
-  //   std::ostringstream ret;
-  //   ret << "[Value: ";
-  //   for (size_t i = 0; i < MtIndex::kValueSize; i++) {
-  //     ret << std::to_string(value[i]) << " ";
-  //   }
-  //   ret << "]";
-  //   return ret.str();
-  // }
+  std::string to_string() const {
+    std::ostringstream ret;
+    ret << "[Value: ";
+    for (size_t i = 0; i < MtIndex::kValueSize; i++) {
+      ret << std::to_string(value[i]) << " ";
+    }
+    ret << "]";
+    return ret.str();
+  }
 };
 
 struct app_stats_t {
@@ -151,7 +142,6 @@ class AppContext : public BasicAppContext {
     } window_[kAppMaxReqWindow];
 
     erpc::FastRand fast_rand;
-    size_t num_send_tot = 0;  // Total requeset sent
     size_t num_resps_tot = 0;  // Total responses received (range & point reqs)
   } client;
 };
@@ -160,10 +150,10 @@ class AppContext : public BasicAppContext {
 void alloc_req_resp_msg_buffers(AppContext *c) {
   for (size_t msgbuf_idx = 0; msgbuf_idx < FLAGS_req_window; msgbuf_idx++) {
     c->client.window_[msgbuf_idx].req_msgbuf_ =
-        c->rpc_->alloc_msg_buffer_or_die(kMaxDataSize);
+        c->rpc_->alloc_msg_buffer_or_die(sizeof(wire_req_t));
 
     c->client.window_[msgbuf_idx].resp_msgbuf_ =
-        c->rpc_->alloc_msg_buffer_or_die(kMaxDataSize);
+        c->rpc_->alloc_msg_buffer_or_die(sizeof(wire_resp_t));
   }
 }
 
