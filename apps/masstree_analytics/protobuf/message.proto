@@ -1,0 +1,12 @@
+syntax = "proto3";
+package masstree;
+
+message Req {
+	int32 id = 1;
+	bytes key = 2;
+}
+
+message Resp {
+	int32 id = 1;
+	bytes value = 2;
+}

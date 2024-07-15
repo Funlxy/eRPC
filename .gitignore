@@ -68,7 +68,8 @@ gdb_history
 *.swp
 src/config.h
 .ycm_extra_conf.py
-
+ycsb_load.txt
+ycsb_run.txt
 # Third-party downloads
 third_party
 
@@ -76,3 +77,4 @@ third_party
 .clang_complete
 .cache
 compile_commands.json
+
