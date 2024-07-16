@@ -33,7 +33,7 @@ int init_workload(std::string path,std::vector<std::pair<std::string,std::string
         std::smatch match;
         if (std::regex_search(line, match, pattern) && match.size() > 2) {
             std::string key = match.str(1);
-            std::string value = match.str(1);
+            std::string value = match.str(2);
             value.pop_back();
             data.push_back({key,value});
         }
@@ -45,15 +45,16 @@ int init_workload(std::string path,std::vector<std::pair<std::string,std::string
 }
 int main() 
 {
-  std::vector<char> v{'a','b','c'};
-  masstree::Req req;
-  std::string a = "abc";
-    uint8_t* c_value = new uint8_t[a.size() + 1];
-    std::strcpy((char*)c_value, a.c_str());
-  req.set_key(c_value);
-  std::cout << strlen(c_value) << std::endl;
-  std::cout << req.key().size() << std::endl;
-}
+  std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
+  std::string s = "INSERT usertable user4052466453699787802 [ field0=9Da']9<Da>T3)U))5f3?v.B%=:d>3.-34!P=)B%4Ak;=v\"C=*S599 ,U-0?j3#d+ ]";
+  std::smatch match;
+
+  if (std::regex_search(s, match, pattern) && match.size() > 2) {
+    std::string key = match.str(1);
+    std::string value = match.str(2);
+    std::cout << key.size() << "\n" << value.size() << std::endl;
+    // data.push_back({key,value});
+  }
 // {
 //     // 打开文件
 //   std::ifstream infile("ycsb_run.txt");
@@ -99,3 +100,4 @@ int main()
 //   for(int i = 0 ; i < 10 ; i++) std::cout << work_load[i].size() << std::endl;
 //     return 0;
 // }
+} 

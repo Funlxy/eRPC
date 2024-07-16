@@ -18,7 +18,7 @@ static constexpr size_t kAppEvLoopMs = 500;
 // Workload params
 static constexpr bool kBypassMasstree = false;  // Bypass Masstree?
 static constexpr size_t kAppMaxReqWindow = 16;  // Max pending reqs per clientstatic constexpr bool kBypassMasstree = false;  // Bypass Masstree?
-static constexpr size_t kMaxDataSize = 1024;
+static constexpr size_t kMaxDataSize = 72;
 
 
 // Globals

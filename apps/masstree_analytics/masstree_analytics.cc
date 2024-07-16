@@ -30,7 +30,6 @@ int init_workload(std::string path){
   std::string line;
   const std::string prefix = "READ usertable ";
   const std::string suffix = " [ field0 ]";
-  int cnt = 0;
   std::vector<std::string> cur; 
   while (std::getline(contentStream, line)) {
       // 检查行是否以指定的前缀开始和以指定的后缀结束
@@ -80,7 +79,7 @@ int load_workload(const std::string& path,std::vector<std::pair<std::string,std:
         std::smatch match;
         if (std::regex_search(line, match, pattern) && match.size() > 2) {
             std::string key = match.str(1);
-            std::string value = match.str(1);
+            std::string value = match.str(2);
             value.pop_back();
             data.push_back({key,value});
         }
@@ -101,7 +100,6 @@ int load_workload(const std::string& path,std::vector<std::pair<std::string,std:
 /// Return the pre-known quantity stored in each 32-bit chunk of the value for
 /// the key for this seed
 uint32_t get_value32_for_seed(uint32_t seed) { return seed + 1; }
-
 void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
 
@@ -126,27 +124,20 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   masstree::Req req;
   req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   assert(req.id()==1);
-  masstree::Resp resp;
   std::string value;
-  const bool success = mti->get(req.key(), value, ti);
+  // // std::cout << req.key() << std::endl;
+  bool success = mti->get(req.key(), value, ti);
   if(!success){
     printf("error,not found%s\n",req.key().c_str());
   }
+  masstree::Resp resp;
   resp.set_id(1);
   resp.set_value(value);
-  // resp->resp_type = success ? RespType::kFound : RespType::kNotFound;
   erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
                                                  resp.ByteSizeLong());
   // serialize
   resp.SerializeToArray(req_handle->pre_resp_msgbuf_.buf_, resp.ByteSizeLong());
-  if (kAppVerbose) {
-    printf(
-        "main: Handled point request in eRPC thread %zu. Key %s, found %s, "
-        "value %s\n",
-        etid, req.key().c_str(), success ? "yes" : "no",
-        success ? resp.value().c_str() : "N/A");
-  }
-
+  
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -188,25 +179,28 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
 // Send one request using this MsgBuffer
 // with protobuf
 void send_req(AppContext *c, size_t msgbuf_idx) {
-  erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
-  auto cur_work = work_load[c->thread_id_];
+   erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
+  auto &cur_work = work_load[c->thread_id_]; // 问题出现在这
   // Protobuf req
   masstree::Req req;
   req.set_id(1); // always use 1
   req.set_key(cur_work[c->client.num_send_tot]); // get key
   int len = req.ByteSizeLong();
-  if(len!=req_msgbuf.get_data_size()){
-     erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,len);
+  if(req_msgbuf.get_data_size()!=len){
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 req.ByteSizeLong());
   }
+
+  c->client.num_send_tot ++;
+  c->client.num_send_tot %=cur_work.size();
   c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
-  // measuer for serialize
+  // measure for serialize
   req.SerializeToArray(req_msgbuf.buf_, len);
   if (kAppVerbose) {
     printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
     sleep(1);
   }
-  c->client.num_send_tot++;
-  c->client.num_send_tot%=cur_work.size();
+
   // always get no scan
   c->rpc_->enqueue_request(0, kAppPointReqType, &req_msgbuf,
                            &c->client.window_[msgbuf_idx].resp_msgbuf_,
@@ -216,14 +210,14 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
 
 // Call back
 void app_cont_func(void *_context, void *_msgbuf_idx) {
-  auto *c = static_cast<AppContext *>(_context);
+   auto *c = static_cast<AppContext *>(_context);
   const auto msgbuf_idx = reinterpret_cast<size_t>(_msgbuf_idx);
   if (kAppVerbose) {
     printf("main: Received response for msgbuf %zu.\n", msgbuf_idx);
   }
 
   const auto &resp_msgbuf = c->client.window_[msgbuf_idx].resp_msgbuf_;
-  
+  // std::cout << resp_msgbuf.get_data_size() << std::endl;
   // deserialize
   masstree::Resp resp;
   resp.ParseFromArray(resp_msgbuf.buf_, resp_msgbuf.get_data_size());
@@ -236,31 +230,7 @@ void app_cont_func(void *_context, void *_msgbuf_idx) {
                     c->rpc_->get_freq_ghz());
   assert(usec >= 0);
 
-  // const auto *req = reinterpret_cast<wire_req_t *>(
-  //     c->client.window_[msgbuf_idx].req_msgbuf_.buf_);
-  // assert(req->req_type == kAppPointReqType ||
-  //        req->req_type == kAppRangeReqType);
-
-  // if (req->req_type == kAppPointReqType) {
   c->client.point_latency.update(static_cast<size_t>(usec * 10.0));  // < 1us
-
-  //   // Check the value
-  //   {
-  //     const auto *wire_resp = reinterpret_cast<wire_resp_t *>(resp_msgbuf.buf_);
-  //     const uint32_t recvd_value =
-  //         *reinterpret_cast<const uint32_t *>(wire_resp->value);
-  //     const uint32_t req_seed = c->client.window_[msgbuf_idx].req_seed_;
-  //     if (recvd_value != get_value32_for_seed(req_seed)) {
-  //       fprintf(stderr,
-  //               "main: Value mismatch. Req seed = %u, recvd_value (first four "
-  //               "bytes = %u)\n",
-  //               req_seed, recvd_value);
-  //     }
-  //   }
-  // } else {
-  //   c->client.range_latency.update(static_cast<size_t>(usec));
-  // }
-
   c->client.num_resps_tot++;
   send_req(c, msgbuf_idx);
 }
@@ -474,7 +444,7 @@ int main(int argc, char **argv) {
 
       // 这里读取.
       std::vector<std::pair<std::string,std::string>> server_workload;
-      load_workload("./data/ycsb_load.txt", server_workload);
+      load_workload("../data/ycsb_load.txt", server_workload);
       // std::vector<size_t> shuffled_key_indices;
       // shuffled_key_indices.reserve(FLAGS_num_keys);
 
@@ -526,7 +496,7 @@ int main(int argc, char **argv) {
   } 
   else { // 客户端
     work_load.resize(FLAGS_num_client_threads);
-    int ret = init_workload("./data/ycsb_run.txt");
+    int ret = init_workload("../data/ycsb_run.txt");
     if(ret==-1){
       printf("error!\n");
       exit(-1);

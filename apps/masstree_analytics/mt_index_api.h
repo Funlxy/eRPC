@@ -70,7 +70,7 @@ class MtIndex {
   }
 
   // Get (unique value)
-  inline bool get(std::string key, std::string& value, threadinfo_t *ti) {
+  inline bool get(const std::string& key, std::string& value, threadinfo_t *ti) {
     Str key_str(key.c_str(), key.size());
 
     Masstree::default_table::unlocked_cursor_type lp(table_->table(), key_str);
