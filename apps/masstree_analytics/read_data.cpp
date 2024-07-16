@@ -7,7 +7,10 @@
 #include <sstream>
 #include <string>
 #include <regex>
-#include "protobuf/message.pb.h"
+#include "flatbuffers/message_generated.h"
+
+// this is my test file, ignore it
+
 int init_workload(std::string path,std::vector<std::pair<std::string,std::string>>& data){
   std::ifstream infile(path);
   if (!infile.is_open()) {
@@ -45,16 +48,17 @@ int init_workload(std::string path,std::vector<std::pair<std::string,std::string
 }
 int main() 
 {
-  std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
-  std::string s = "INSERT usertable user4052466453699787802 [ field0=9Da']9<Da>T3)U))5f3?v.B%=:d>3.-34!P=)B%4Ak;=v\"C=*S599 ,U-0?j3#d+ ]";
-  std::smatch match;
+  
+  // std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
+  // std::string s = "INSERT usertable user4052466453699787802 [ field0=9Da']9<Da>T3)U))5f3?v.B%=:d>3.-34!P=)B%4Ak;=v\"C=*S599 ,U-0?j3#d+ ]";
+  // std::smatch match;
 
-  if (std::regex_search(s, match, pattern) && match.size() > 2) {
-    std::string key = match.str(1);
-    std::string value = match.str(2);
-    std::cout << key.size() << "\n" << value.size() << std::endl;
-    // data.push_back({key,value});
-  }
+  // if (std::regex_search(s, match, pattern) && match.size() > 2) {
+  //   std::string key = match.str(1);
+  //   std::string value = match.str(2);
+  //   std::cout << key.size() << "\n" << value.size() << std::endl;
+  //   // data.push_back({key,value});
+  // }
 // {
 //     // 打开文件
 //   std::ifstream infile("ycsb_run.txt");

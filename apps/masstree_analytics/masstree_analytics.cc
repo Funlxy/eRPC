@@ -1,4 +1,6 @@
 #include "masstree_analytics.h"
+#include <flatbuffers/buffer.h>
+#include <flatbuffers/flatbuffer_builder.h>
 #include <signal.h>
 #include <cassert>
 #include <cstdio>
@@ -7,7 +9,7 @@
 #include <vector>
 #include <regex>
 #include "util/autorun_helpers.h"
-#include "protobuf/message.pb.h"
+#include "flatbuffers/message_generated.h"
 std::vector<std::vector<std::string>> work_load;
 void app_cont_func(void *, void *);  // Forward declaration
 
@@ -89,17 +91,6 @@ int load_workload(const std::string& path,std::vector<std::pair<std::string,std:
   printf("work load cnts: %zu\n",data.size());
   return 0;
 }
-// Generate the key for this key index
-// void key_gen(size_t index, uint8_t *key) {
-//   static_assert(MtIndex::kKeySize >= 2 * sizeof(uint64_t), "");
-//   auto *key_64 = reinterpret_cast<uint64_t *>(key);
-//   key_64[0] = 10;
-//   key_64[1] = index * 8192;
-// }
-
-/// Return the pre-known quantity stored in each 32-bit chunk of the value for
-/// the key for this seed
-uint32_t get_value32_for_seed(uint32_t seed) { return seed + 1; }
 void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
 
@@ -121,81 +112,48 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   const auto *req_msgbuf = req_handle->get_req_msgbuf();
 
   // deserialize
-  masstree::Req req;
-  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
-  assert(req.id()==1);
+  auto req = flatbuffers::GetRoot<masstree::Req>(req_msgbuf->buf_);
+  assert(req->id()==1);
   std::string value;
   // // std::cout << req.key() << std::endl;
-  bool success = mti->get(req.key(), value, ti);
+  bool success = mti->get(req->key()->c_str(), value, ti);
   if(!success){
-    printf("error,not found%s\n",req.key().c_str());
+    printf("error,not found%s\n",req->key()->c_str());
   }
-  masstree::Resp resp;
-  resp.set_id(1);
-  resp.set_value(value);
-  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 resp.ByteSizeLong());
+  flatbuffers::FlatBufferBuilder builder(kMaxDataSize*2);
+  auto s = builder.CreateString(value);
+  auto resp = masstree::CreateResp(builder,1,s);
   // serialize
-  resp.SerializeToArray(req_handle->pre_resp_msgbuf_.buf_, resp.ByteSizeLong());
+  builder.Finish(resp);
+  auto size = builder.GetSize();
+  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
+                                                 size);
+  // memcopy serialized data to resp_buf
+  memcpy(req_handle->pre_resp_msgbuf_.buf_, builder.GetBufferPointer(), size);
   
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
-
-// void range_req_handler(erpc::ReqHandle *req_handle, void *_context) {
-//   auto *c = static_cast<AppContext *>(_context);
-
-//   // Range request handler runs in a background thread
-//   const size_t etid = c->rpc_->get_etid();
-//   assert(etid < FLAGS_num_server_bg_threads);
-
-//   if (kAppVerbose) {
-//     printf("main: Handling range request in eRPC thread %zu.\n", etid);
-//   }
-
-//   MtIndex *mti = c->server.mt_index;
-//   threadinfo_t *ti = c->server.ti_arr[etid];
-//   assert(mti != nullptr && ti != nullptr);
-
-//   const auto *req_msgbuf = req_handle->get_req_msgbuf();
-//   assert(req_msgbuf->get_data_size() == sizeof(wire_req_t));
-
-//   auto *req = reinterpret_cast<const wire_req_t *>(req_msgbuf->buf_);
-//   assert(req->req_type == kAppRangeReqType);
-//   uint8_t key_copy[MtIndex::kKeySize];  // mti->sum_in_range() modifies key
-//   memcpy(key_copy, req->point_req.key, MtIndex::kKeySize);
-
-//   const size_t count = mti->sum_in_range(key_copy, req->range_req.range, ti);
-
-//   erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-//                                                  sizeof(wire_resp_t));
-//   auto *resp =
-//       reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
-//   resp->resp_type = RespType::kFound;
-//   resp->range_count = count;
-
-//   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-// }
-
 // Send one request using this MsgBuffer
-// with protobuf
 void send_req(AppContext *c, size_t msgbuf_idx) {
-   erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
-  auto &cur_work = work_load[c->thread_id_]; // 问题出现在这
-  // Protobuf req
-  masstree::Req req;
-  req.set_id(1); // always use 1
-  req.set_key(cur_work[c->client.num_send_tot]); // get key
-  int len = req.ByteSizeLong();
-  if(req_msgbuf.get_data_size()!=len){
-    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
-                                                 req.ByteSizeLong());
-  }
+  erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
+  auto &cur_work = work_load[c->thread_id_];
+  // flatbuffers req
+  flatbuffers::FlatBufferBuilder builder(kMaxDataSize*2);
+  auto key = builder.CreateString(cur_work[c->client.num_send_tot]);
+  auto req = masstree::CreateReq(builder,1,key);
+
 
   c->client.num_send_tot ++;
   c->client.num_send_tot %=cur_work.size();
   c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
   // measure for serialize
-  req.SerializeToArray(req_msgbuf.buf_, len);
+  builder.Finish(req);
+  auto size = builder.GetSize();
+  if(req_msgbuf.get_data_size()!=size){
+    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 size);
+  }
+  memcpy(req_msgbuf.buf_, builder.GetBufferPointer(), size);
   if (kAppVerbose) {
     printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
     sleep(1);
@@ -208,7 +166,7 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
 }
 
 
-// Call back
+// Call back client
 void app_cont_func(void *_context, void *_msgbuf_idx) {
    auto *c = static_cast<AppContext *>(_context);
   const auto msgbuf_idx = reinterpret_cast<size_t>(_msgbuf_idx);
@@ -217,11 +175,11 @@ void app_cont_func(void *_context, void *_msgbuf_idx) {
   }
 
   const auto &resp_msgbuf = c->client.window_[msgbuf_idx].resp_msgbuf_;
-  // std::cout << resp_msgbuf.get_data_size() << std::endl;
+
   // deserialize
-  masstree::Resp resp;
-  resp.ParseFromArray(resp_msgbuf.buf_, resp_msgbuf.get_data_size());
-  erpc::rt_assert(resp.value().size() == 64,
+  auto resp = flatbuffers::GetRoot<masstree::Resp>(resp_msgbuf.buf_);
+
+  erpc::rt_assert(resp->value()->size() == 64,
                   "Invalid response size");
 
   // latency
@@ -374,16 +332,6 @@ void masstree_populate_func(size_t thread_id, MtIndex *mti, threadinfo_t *ti,
     if (kAppVerbose) {
       fprintf(stderr, "PUT: Key: [%s]\n",key.c_str());
       fprintf(stderr, "PUT: Value: [%s]\n",value.c_str());
-
-      // const uint64_t *key_64 = reinterpret_cast<uint64_t *>(key);
-      // for (size_t j = 0; j < MtIndex::kKeySize / sizeof(uint64_t); j++) {
-      //   fprintf(stderr, "%zu ", key_64[j]);
-      // }
-      // fprintf(stderr, "] Value: [");
-      // for (size_t j = 0; j < MtIndex::kValueSize; j++) { //68
-      //   fprintf(stderr, "%u ", value[j]);
-      // }
-      // fprintf(stderr, "]\n");
     }
 
     mti->put(key,value,ti);

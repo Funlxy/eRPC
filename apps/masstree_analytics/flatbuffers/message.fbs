@@ -1,0 +1,11 @@
+namespace masstree;
+
+table Req {
+    id:uint32;
+    key:string;
+}
+
+table Resp{
+    id:uint32;
+    value:string;
+}
