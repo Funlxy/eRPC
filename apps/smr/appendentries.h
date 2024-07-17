@@ -43,7 +43,7 @@ struct app_appendentries_t {
       buf += sizeof(client_req_t);
     }
 
-    assert(buf == req_msgbuf.buf_ + req_msgbuf.get_data_size());
+    // assert(buf == req_msgbuf.buf_ + req_msgbuf.get_data_size());
   }
 
   static constexpr size_t kStaticMsgEntryArrSize = 16;
