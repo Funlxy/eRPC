@@ -110,7 +110,7 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // 反序列化
   auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
   // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
-  assert(req_msgbuf->get_data_size() == sizeof(client_req_t));
+  assert(message->data()->size()== sizeof(client_req_t));
   const auto *client_req = (client_req_t *)(message->data()->Data());
 
   // Check if it's OK to receive the client's request
