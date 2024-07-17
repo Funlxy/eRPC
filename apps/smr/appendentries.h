@@ -211,7 +211,6 @@ void appendentries_cont(void *_context, void *_tag) {
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
   // 反序列化
   auto* message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
-  printf("\tappend:%d\n",message->data()->size());
   auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
 
   if (likely(rrt->resp_msgbuf.get_data_size() > 0)) {

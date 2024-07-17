@@ -142,7 +142,6 @@ void requestvote_cont(void *_context, void *_tag) {
   // 反序列化
   auto message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
   auto size = (int)message->data()->size();
-  printf("size = %d\n",size);
   erpc::rt_assert(size==sizeof(msg_requestvote_response_t), "in call back,size not equal\n");
   auto *msg_rv_resp = (msg_requestvote_response_t *)(message->data()->Data());
 
