@@ -96,10 +96,12 @@ struct app_appendentries_t {
 
 // 把它的序列化全部替换.
 void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
+  printf("recv append\n");
   auto *c = static_cast<AppContext *>(_context);
   auto *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
   auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
+  // auto b = message->data()->begin();
   // auto* entry_ptr = message->data()->Data();
   // c->rpc->resize_msg_buffer(&req_msgbuf, message->data()->size());
   // req_msgbuf->buf_ = entry_ptr;

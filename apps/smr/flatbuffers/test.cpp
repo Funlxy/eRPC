@@ -38,9 +38,10 @@ int main()
   t->a = 10;
   // 就地
   auto de_message = flatbuffers::GetRoot<smr::Message>(buf);
-  auto de_t = (test*)de_message->data()->Data();
-  std::cout << de_t->a << " " << de_t->b << " " << de_t->c << std::endl;
+  auto s = de_message->data()->GetAsString(0);
+  std::cout << s << std::endl;
+  // std::cout << de_t->a << " " << de_t->b << " " << de_t->c << std::endl;
   // 这里是24与sizeof(test)相同
-  std::cout << de_message->data()->size() << std::endl;
+  // std::cout << de_message->data()->size() << std::endl;
 
 }

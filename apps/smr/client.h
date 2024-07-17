@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <cstdio>
 #include <iostream>
 #include "smr.h"
 
@@ -55,7 +56,12 @@ void send_req_one(AppContext *c) {
   size_t rand_key = c->fast_rand.next_u32() & (kAppNumKeys - 1);
   req->key = rand_key;
   req->value.v[0] = rand_key;
-
+  if (kAppVerbose) {
+    printf("smr: Client sending request %s to leader index %zu [%s].\n",
+           req->to_string().c_str(), c->client.leader_idx,
+           erpc::get_formatted_time().c_str());
+  }
+  printf("key:%lu,value%lu\n",req->key,req->value);
   // 序列化
   flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector((uint8_t*)req, sizeof(client_req_t));
@@ -65,20 +71,15 @@ void send_req_one(AppContext *c) {
   size_t ser_size = builder.GetSize();
   c->rpc->resize_msg_buffer(&c->client.req_msgbuf, ser_size);
   memcpy(c->client.req_msgbuf.buf_, buf, ser_size);
-
-  if (kAppVerbose) {
-    printf("smr: Client sending request %s to leader index %zu [%s].\n",
-           req->to_string().c_str(), c->client.leader_idx,
-           erpc::get_formatted_time().c_str());
-  }
-
   connection_t &conn = c->conn_vec[c->client.leader_idx];
+  std::cout <<"session_num: "<< conn.session_num << std::endl;
   c->rpc->enqueue_request(
       conn.session_num, static_cast<uint8_t>(ReqType::kClientReq),
       &c->client.req_msgbuf, &c->client.resp_msgbuf, client_cont, nullptr);
 }
 
 void client_cont(void *_context, void *) {
+  printf("client recv response\n");
   auto *c = static_cast<AppContext *>(_context);
   const double latency_us = c->client.chrono_timer.get_ns() / 1000.0;
   c->client.lat_us_hdr_histogram.insert(latency_us);
@@ -119,7 +120,7 @@ void client_cont(void *_context, void *) {
     // The RPC was successful
     // auto *client_resp =
     //     reinterpret_cast<client_resp_t *>(c->client.resp_msgbuf.buf_);
-
+    std::cout << "leader node in cont_func:" << client_resp->leader_node_id << std::endl;
     if (kAppVerbose) {
       printf("smr: Client received resp %s [%s].\n",
              client_resp->to_string().c_str(),
