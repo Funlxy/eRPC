@@ -190,7 +190,7 @@ static int smr_raft_send_appendentries_cb(raft_server_t *, void *,
   app_appendentries_t::serialize(rrt->req_msgbuf, c->server.node_id, msg_ae);
   // 序列化
   flatbuffers::FlatBufferBuilder builder;
-  auto offset = builder.CreateVector((uint8_t*)rrt->req_msgbuf.buf_, sizeof(msg_appendentries_response_t));
+  auto offset = builder.CreateVector((uint8_t*)rrt->req_msgbuf.buf_, req_size);
   auto fb_message = smr::CreateMessage(builder,offset);
   builder.Finish(fb_message);
   uint8_t *buf = builder.GetBufferPointer();
