@@ -1085,12 +1085,13 @@ int raft_msg_entry_response_committed(raft_server_t* me_,
                                       const msg_entry_response_t* r)
 {
     raft_entry_t* ety = raft_get_entry_from_idx(me_, r->idx);
-    if (!ety)
-        printf("no!\n");
+    if (ety==NULL){
         return 0;
-
+    }
+    printf("r->term: %d\n", r->term);
+    printf("ety->term: %d\n", ety->term);
     /* entry from another leader has invalidated this entry message */
-    if (r->term != ety->term)
+    if ((long)(r->term)!=(long)(ety->term))
         printf("other\n");
         return -1;
     printf("why?\n");

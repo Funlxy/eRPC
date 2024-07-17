@@ -25,6 +25,7 @@ fi
 
 epid=$1
 numa_node=$2
+set -x
 
 # Non-GDB mode
 if [ "$#" -eq 2 ]; then

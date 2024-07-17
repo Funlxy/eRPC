@@ -5,8 +5,10 @@
 
 #pragma once
 
+#include <unistd.h>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include "appendentries.h"
 #include "log_callbacks.h"
@@ -77,6 +79,7 @@ void init_raft(AppContext *c) {
 // Send a response to the client. This does not free any non-eRPC memory.
 void send_client_response(AppContext *c, erpc::ReqHandle *req_handle,
                           client_resp_t &client_resp) {
+  printf("send client resp\n");
   if (kAppVerbose) {
     printf("smr: Sending reply to client: %s [%s].\n",
            client_resp.to_string().c_str(), erpc::get_formatted_time().c_str());
@@ -107,13 +110,14 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (kAppMeasureCommitLatency) leader_sav.start_tsc = erpc::rdtsc();
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kClientReq);
 
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  const erpc::MsgBuffer *fb_req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
-  auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
-
-  // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
+  auto* message = flatbuffers::GetRoot<smr::Message>(fb_req_msgbuf->buf_);
   assert(message->data()->size()== sizeof(client_req_t));
-  const auto *client_req = (client_req_t *)(message->data()->Data());
+  auto req_msgbuf = c->rpc->alloc_msg_buffer_or_die(message->data()->size());
+  memcpy(req_msgbuf.buf_, message->data()->Data(), message->data()->size());
+  // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
+  auto *client_req = (client_req_t *)(req_msgbuf.buf_);
   std::cout << client_req->to_string() << std::endl;
   // Check if it's OK to receive the client's request
   raft_node_t *leader = raft_get_current_leader_node(c->server.raft);
@@ -163,6 +167,7 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   ent.data.len = sizeof(client_req_t);
 
   int e = raft_recv_entry(c->server.raft, &ent, &leader_sav.msg_entry_response);
+  printf("%p:%p\n",c->server.raft,&leader_sav.msg_entry_response);
   printf("e=%d\n",e);
   erpc::rt_assert(e == 0, "client_req_handle: raft_recv_entry failed");
 }
@@ -261,10 +266,13 @@ void server_func(erpc::Nexus *nexus, AppContext *c) {
       // are a follower
       continue;
     }
+    // printf("------%p:%p\n",c->server.raft,&leader_sav.msg_entry_response);
 
     int commit_status = raft_msg_entry_response_committed(
         c->server.raft, &leader_sav.msg_entry_response);
-    assert(commit_status == 0 || commit_status == 1);
+    // sleep(5);
+    // assert(commit_status == 0 || commit_status == 1);
+    // printf("%d\n",commit_status);
     if (commit_status == 1) {
       // Committed: Send a response
       raft_apply_all(c->server.raft);
