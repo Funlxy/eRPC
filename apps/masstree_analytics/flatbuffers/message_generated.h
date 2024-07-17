@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 22 &&
+              FLATBUFFERS_VERSION_MINOR == 9 &&
+              FLATBUFFERS_VERSION_REVISION == 24,
              "Non-compatible flatbuffers version included");
 
 namespace masstree {
@@ -21,7 +21,7 @@ struct ReqBuilder;
 struct Resp;
 struct RespBuilder;
 
-struct Req FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+struct Req FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ReqBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
@@ -30,10 +30,10 @@ struct Req FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t id() const {
     return GetField<uint32_t>(VT_ID, 0);
   }
-  const ::flatbuffers::String *key() const {
-    return GetPointer<const ::flatbuffers::String *>(VT_KEY);
+  const flatbuffers::String *key() const {
+    return GetPointer<const flatbuffers::String *>(VT_KEY);
   }
-  bool Verify(::flatbuffers::Verifier &verifier) const {
+  bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_ID, 4) &&
            VerifyOffset(verifier, VT_KEY) &&
@@ -44,37 +44,37 @@ struct Req FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
 
 struct ReqBuilder {
   typedef Req Table;
-  ::flatbuffers::FlatBufferBuilder &fbb_;
-  ::flatbuffers::uoffset_t start_;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
   void add_id(uint32_t id) {
     fbb_.AddElement<uint32_t>(Req::VT_ID, id, 0);
   }
-  void add_key(::flatbuffers::Offset<::flatbuffers::String> key) {
+  void add_key(flatbuffers::Offset<flatbuffers::String> key) {
     fbb_.AddOffset(Req::VT_KEY, key);
   }
-  explicit ReqBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ReqBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<Req> Finish() {
+  flatbuffers::Offset<Req> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<Req>(end);
+    auto o = flatbuffers::Offset<Req>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<Req> CreateReq(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
+inline flatbuffers::Offset<Req> CreateReq(
+    flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> key = 0) {
+    flatbuffers::Offset<flatbuffers::String> key = 0) {
   ReqBuilder builder_(_fbb);
   builder_.add_key(key);
   builder_.add_id(id);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<Req> CreateReqDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
+inline flatbuffers::Offset<Req> CreateReqDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     const char *key = nullptr) {
   auto key__ = key ? _fbb.CreateString(key) : 0;
@@ -84,7 +84,7 @@ inline ::flatbuffers::Offset<Req> CreateReqDirect(
       key__);
 }
 
-struct Resp FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+struct Resp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef RespBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
@@ -93,10 +93,10 @@ struct Resp FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t id() const {
     return GetField<uint32_t>(VT_ID, 0);
   }
-  const ::flatbuffers::String *value() const {
-    return GetPointer<const ::flatbuffers::String *>(VT_VALUE);
+  const flatbuffers::String *value() const {
+    return GetPointer<const flatbuffers::String *>(VT_VALUE);
   }
-  bool Verify(::flatbuffers::Verifier &verifier) const {
+  bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_ID, 4) &&
            VerifyOffset(verifier, VT_VALUE) &&
@@ -107,37 +107,37 @@ struct Resp FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
 
 struct RespBuilder {
   typedef Resp Table;
-  ::flatbuffers::FlatBufferBuilder &fbb_;
-  ::flatbuffers::uoffset_t start_;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
   void add_id(uint32_t id) {
     fbb_.AddElement<uint32_t>(Resp::VT_ID, id, 0);
   }
-  void add_value(::flatbuffers::Offset<::flatbuffers::String> value) {
+  void add_value(flatbuffers::Offset<flatbuffers::String> value) {
     fbb_.AddOffset(Resp::VT_VALUE, value);
   }
-  explicit RespBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit RespBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<Resp> Finish() {
+  flatbuffers::Offset<Resp> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<Resp>(end);
+    auto o = flatbuffers::Offset<Resp>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<Resp> CreateResp(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
+inline flatbuffers::Offset<Resp> CreateResp(
+    flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> value = 0) {
+    flatbuffers::Offset<flatbuffers::String> value = 0) {
   RespBuilder builder_(_fbb);
   builder_.add_value(value);
   builder_.add_id(id);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<Resp> CreateRespDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
+inline flatbuffers::Offset<Resp> CreateRespDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     const char *value = nullptr) {
   auto value__ = value ? _fbb.CreateString(value) : 0;
