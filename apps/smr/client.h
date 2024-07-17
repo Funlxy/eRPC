@@ -178,9 +178,9 @@ void client_func(erpc::Nexus *nexus, AppContext *c) {
   c->rpc->retry_connect_on_invalid_rpc_id_ = true;
 
   // Pre-allocate MsgBuffers
-  c->client.req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(client_req_t));
+  c->client.req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(client_req_t)+30);
   c->client.resp_msgbuf =
-      c->rpc->alloc_msg_buffer_or_die(sizeof(client_resp_t));
+      c->rpc->alloc_msg_buffer_or_die(sizeof(client_resp_t)+30);
 
   // Raft client: Create session to each Raft server
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
