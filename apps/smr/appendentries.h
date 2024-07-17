@@ -7,6 +7,7 @@
 #include <flatbuffers/flatbuffer_builder.h>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include "smr.h"
 
@@ -139,7 +140,7 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   builder.Finish(fb_message);
   uint8_t *buf = builder.GetBufferPointer();
   size_t ser_size = builder.GetSize();
-  c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(ser_size));
+  c->rpc->resize_msg_buffer(&resp_msgbuf, ser_size);
   memcpy(resp_msgbuf.buf_, buf, ser_size);
   c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
@@ -210,6 +211,7 @@ void appendentries_cont(void *_context, void *_tag) {
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
   // 反序列化
   auto* message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
+  printf("\tappend:%d\n",message->data()->size());
   auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
 
   if (likely(rrt->resp_msgbuf.get_data_size() > 0)) {
