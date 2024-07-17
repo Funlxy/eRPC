@@ -112,8 +112,8 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
          erpc::get_formatted_time().c_str());
 
   raft_req_tag_t *rrt = c->server.raft_req_tag_pool.alloc();
-  rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
-  rrt->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
+  rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t)+30);
+  rrt->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t)+30);
   rrt->node = node;
 
   auto *rv_req = reinterpret_cast<app_requestvote_t *>(rrt->req_msgbuf.buf_);
