@@ -722,7 +722,6 @@ int raft_recv_entry(raft_server_t* me_,
 {
     raft_server_private_t* me = (raft_server_private_t*)me_;
     int i;
-    printf("in raft_recv_entry\n");
     if (raft_entry_is_voting_cfg_change(ety))
     {
         /* Only one voting cfg change at a time */
@@ -734,18 +733,14 @@ int raft_recv_entry(raft_server_t* me_,
         if (!raft_is_apply_allowed(me_))
             return RAFT_ERR_SNAPSHOT_IN_PROGRESS;
     }
-    printf("state:%d\n",((raft_server_private_t*)me_)->state);
     if (!raft_is_leader(me_))
-        printf("not leader?\n");
         return RAFT_ERR_NOT_LEADER;
-    printf("add log\n");
     __log(me_, NULL, "received entry t:%d id: %d idx: %d",
           me->current_term, ety->id, raft_get_current_idx(me_) + 1);
 
     ety->term = me->current_term;
     int e = raft_append_entry(me_, ety);
     if (0 != e)
-        printf("here---\n");
         return e;
 
     for (i = 0; i < me->num_nodes; i++)

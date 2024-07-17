@@ -38,24 +38,16 @@ static std::string msg_requestvote_response_string(
 }
 
 void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
+  ERPC_WARN("In requestvote_handler\n");
   auto *c = static_cast<AppContext *>(_context);
   // 里面是序列化后的消息
-  const erpc::MsgBuffer *fb_req_msgbf = req_handle->get_req_msgbuf();
+  const erpc::MsgBuffer *req_msgbf = req_handle->get_req_msgbuf();
   // 反序列化出来
-  auto message = flatbuffers::GetRoot<smr::Message>(fb_req_msgbf->buf_);
+  auto message = flatbuffers::GetRoot<smr::Message>(req_msgbf->buf_);
   auto size = message->data()->size();
   erpc::rt_assert(size==sizeof(app_requestvote_t), "in handler,size not equal\n");
   // assert(size==sizeof(app_requestvote_t));
   auto *rv_req = (app_requestvote_t *)(message->data()->Data());
-
-  // const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  // Add serialization lib here
-
-  // message->data()->size()
-  // assert(req_msgbuf->get_data_size() == sizeof(app_requestvote_t));
-
-  // auto *rv_req = reinterpret_cast<app_requestvote_t *>(req_msgbuf->buf_);
-
   printf("smr: Received requestvote request from %s: %s [%s].\n",
          node_id_to_name_map[rv_req->node_id].c_str(),
          msg_requestvote_string(&rv_req->msg_rv).c_str(),

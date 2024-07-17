@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include "msg_buffer.h"
 #include "smr.h"
 
 // With eRPC, there is currently no way for an RPC server to access connection
@@ -53,10 +54,10 @@ struct app_appendentries_t {
   //  * The buffers for entries the unpacked message come from the mempool.
   //  * The entries array for the unpacked message is dynamically allocated
   //    if there are too many entries. Caller must free if so.
-  static void unpack(const uint8_t* req_msgbuf_,size_t len,
+static void unpack(const erpc::MsgBuffer *req_msgbuf,
                      msg_entry_t *static_msg_entry_arr,
                      AppMemPool<client_req_t> &log_entry_appdata_pool) {
-    uint8_t *buf = const_cast<uint8_t*>(req_msgbuf_);
+    uint8_t *buf = req_msgbuf->buf_;
     auto *ae_req = reinterpret_cast<app_appendentries_t *>(buf);
     msg_appendentries_t &msg_ae = ae_req->msg_ae;
     assert(msg_ae.entries == nullptr);
@@ -86,7 +87,7 @@ struct app_appendentries_t {
         buf += sizeof(client_req_t);
       }
 
-      assert(buf == req_msgbuf_+ len);
+      assert(buf == req_msgbuf->buf_ + req_msgbuf->get_data_size());
     }
   }
 };
@@ -101,21 +102,19 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
   auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
-  // auto b = message->data()->begin();
-  // auto* entry_ptr = message->data()->Data();
-  // c->rpc->resize_msg_buffer(&req_msgbuf, message->data()->size());
-  // req_msgbuf->buf_ = entry_ptr;
+  int size = message->data()->size();
+  ((erpc::MsgBuffer*)req_msgbuf)->buf_ = (uint8_t*)message->data()->Data();
+  c->rpc->resize_msg_buffer((erpc::MsgBuffer*)req_msgbuf, size);
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeReq);
-
   // Reconstruct an app_appendentries_t in req_msgbuf. The entry buffers the
   // unpacked message are long-lived (pool-allocated). The unpacker may choose
   // to not use static_msg_entry_arr for the unpacked entries, in which case
   // we free the dynamic memory later below.
   msg_entry_t static_msg_entry_arr[app_appendentries_t::kStaticMsgEntryArrSize];
-  app_appendentries_t::unpack(message->data()->Data(), message->data()->size(),static_msg_entry_arr,
+  app_appendentries_t::unpack(req_msgbuf,static_msg_entry_arr,
                               c->server.log_entry_appdata_pool);
 
-  auto *ae_req = (app_appendentries_t *)(message->data()->Data());
+  auto *ae_req = (app_appendentries_t *)(req_msgbuf->buf_);
   msg_appendentries_t &msg_ae = ae_req->msg_ae;
 
   if (kAppVerbose) {

@@ -80,26 +80,19 @@ void send_client_response(AppContext *c, erpc::ReqHandle *req_handle,
     printf("smr: Sending reply to client: %s [%s].\n",
            client_resp.to_string().c_str(), erpc::get_formatted_time().c_str());
   }
-  if(client_resp.resp_type==ClientRespType::kFailRedirect){
-    printf("---------redirect\n");
-  }
   erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
-  auto *_client_resp = reinterpret_cast<client_resp_t *>(resp_msgbuf.buf_);
-  *_client_resp = client_resp;
+  // auto *_client_resp = reinterpret_cast<client_resp_t *>(resp_msgbuf.buf_);
+  // *_client_resp = client_resp;
   // 序列化
   flatbuffers::FlatBufferBuilder builder;
-  auto offset = builder.CreateVector((uint8_t*)resp_msgbuf.buf_, sizeof(client_resp_t));
+  auto offset = builder.CreateVector((uint8_t*)&client_resp, sizeof(client_resp_t));
   auto fb_message = smr::CreateMessage(builder,offset);
   builder.Finish(fb_message);
   uint8_t *buf = builder.GetBufferPointer();
   size_t ser_size = builder.GetSize();
+  // --------
   c->rpc->resize_msg_buffer(&resp_msgbuf, ser_size);
   memcpy(resp_msgbuf.buf_, buf, ser_size);
-  if(client_resp.resp_type==ClientRespType::kFailRedirect){
-    printf("---------%d\n",ser_size);
-  }
-  // c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-  //                           sizeof(client_resp_t));
   c->rpc->enqueue_response(req_handle, &resp_msgbuf);
 }
 
@@ -113,10 +106,9 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (kAppMeasureCommitLatency) leader_sav.start_tsc = erpc::rdtsc();
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kClientReq);
 
-  const erpc::MsgBuffer *fb_req_msgbuf = req_handle->get_req_msgbuf();
+  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
-  auto* message = flatbuffers::GetRoot<smr::Message>(fb_req_msgbuf->buf_);
-  erpc::MsgBuffer req_msgbuf = c->rpc->alloc_msg_buffer_or_die(size);
+  auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
 
   // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
   assert(message->data()->size()== sizeof(client_req_t));
@@ -139,9 +131,9 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (unlikely(leader_node_id != c->server.node_id)) {
     printf(
         "smr: Received request %s from client, "
-        "but leader is %s (not me). Redirecting client, size = %d.\n",
+        "but leader is %s (not me). Redirecting client\n",
         client_req->to_string().c_str(),
-        node_id_to_name_map.at(leader_node_id).c_str(),req_handle->pre_resp_msgbuf_.get_data_size());
+        node_id_to_name_map.at(leader_node_id).c_str());
 
     client_resp_t err_resp(ClientRespType::kFailRedirect, leader_node_id);
     send_client_response(c, req_handle, err_resp);
@@ -153,11 +145,8 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
     printf("smr: we are leader!: Received request %s from client [%s].\n",
            client_req->to_string().c_str(), erpc::get_formatted_time().c_str());
   }
-  // printf("smr: we are leader!: Received request %s from client [%s].\n",
-  //          client_req->to_string().c_str(), erpc::get_formatted_time().c_str());
+
   assert(!leader_sav.in_use);
-  // printf("in use\n");
-  // printf("leader_node_id:%d, our id %d,\n",leader_node_id,c->server.node_id);
 
   leader_sav.in_use = true;
   leader_sav.req_handle = req_handle;
@@ -250,12 +239,12 @@ void server_func(erpc::Nexus *nexus, AppContext *c) {
     if (erpc::rdtsc() - loop_tsc > 3000000000ull) {
       erpc::Latency &commit_latency = c->server.commit_latency;
 
-      // printf(
-      //     "smr: Leader commit latency (us) = "
-      //     "{%.2f median, %.2f 99%%}. Number of log entries = %ld.\n",
-      //     kAppMeasureCommitLatency ? commit_latency.perc(.50) / 10.0 : -1.0,
-      //     kAppMeasureCommitLatency ? commit_latency.perc(.99) / 10.0 : -1.0,
-      //     raft_get_log_count(c->server.raft));
+      printf(
+          "smr: Leader commit latency (us) = "
+          "{%.2f median, %.2f 99%%}. Number of log entries = %ld.\n",
+          kAppMeasureCommitLatency ? commit_latency.perc(.50) / 10.0 : -1.0,
+          kAppMeasureCommitLatency ? commit_latency.perc(.99) / 10.0 : -1.0,
+          raft_get_log_count(c->server.raft));
 
       loop_tsc = erpc::rdtsc();
       commit_latency.reset();
@@ -275,12 +264,8 @@ void server_func(erpc::Nexus *nexus, AppContext *c) {
     int commit_status = raft_msg_entry_response_committed(
         c->server.raft, &leader_sav.msg_entry_response);
     assert(commit_status == 0 || commit_status == 1);
-    if(commit_status==0){
-      // printf("no entry\n");
-    }
     if (commit_status == 1) {
       // Committed: Send a response
-      printf("we are here");
       raft_apply_all(c->server.raft);
 
       leader_sav.in_use = false;
