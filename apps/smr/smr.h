@@ -17,7 +17,7 @@
 #include "time_entry.h"
 #include "util/autorun_helpers.h"
 #include "util/hdr_histogram_wrapper.h"
-
+#include "./flatbuffers/message_generated.h"
 extern "C" {
 #include <raft.h>
 }

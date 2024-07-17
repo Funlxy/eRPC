@@ -82,9 +82,17 @@ void send_client_response(AppContext *c, erpc::ReqHandle *req_handle,
   erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
   auto *_client_resp = reinterpret_cast<client_resp_t *>(resp_msgbuf.buf_);
   *_client_resp = client_resp;
-
-  c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                            sizeof(client_resp_t));
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)_client_resp, sizeof(client_resp_t));
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&resp_msgbuf, ser_size);
+  memcpy(resp_msgbuf.buf_, buf, ser_size);
+  // c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
+  //                           sizeof(client_resp_t));
   c->rpc->enqueue_response(req_handle, &resp_msgbuf);
 }
 
@@ -99,8 +107,11 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kClientReq);
 
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  // 反序列化
+  auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
+  // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
   assert(req_msgbuf->get_data_size() == sizeof(client_req_t));
-  const auto *client_req = reinterpret_cast<client_req_t *>(req_msgbuf->buf_);
+  const auto *client_req = (client_req_t *)(message->data()->Data());
 
   // Check if it's OK to receive the client's request
   raft_node_t *leader = raft_get_current_leader_node(c->server.raft);

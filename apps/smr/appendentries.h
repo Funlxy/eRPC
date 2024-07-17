@@ -4,6 +4,10 @@
  */
 
 #pragma once
+#include <flatbuffers/flatbuffer_builder.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include "smr.h"
 
 // With eRPC, there is currently no way for an RPC server to access connection
@@ -48,10 +52,10 @@ struct app_appendentries_t {
   //  * The buffers for entries the unpacked message come from the mempool.
   //  * The entries array for the unpacked message is dynamically allocated
   //    if there are too many entries. Caller must free if so.
-  static void unpack(const erpc::MsgBuffer *req_msgbuf,
+  static void unpack(const uint8_t* req_msgbuf_,size_t len,
                      msg_entry_t *static_msg_entry_arr,
                      AppMemPool<client_req_t> &log_entry_appdata_pool) {
-    uint8_t *buf = req_msgbuf->buf_;
+    uint8_t *buf = const_cast<uint8_t*>(req_msgbuf_);
     auto *ae_req = reinterpret_cast<app_appendentries_t *>(buf);
     msg_appendentries_t &msg_ae = ae_req->msg_ae;
     assert(msg_ae.entries == nullptr);
@@ -81,17 +85,23 @@ struct app_appendentries_t {
         buf += sizeof(client_req_t);
       }
 
-      assert(buf == req_msgbuf->buf_ + req_msgbuf->get_data_size());
+      assert(buf == req_msgbuf_+ len);
     }
   }
 };
 
 // appendentries request format is like so:
 // node ID, msg_appendentries_t, [{size, buf}]
+
+// 把它的序列化全部替换.
 void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-
+  auto *req_msgbuf = req_handle->get_req_msgbuf();
+  // 反序列化
+  auto* message = flatbuffers::GetRoot<smr::Message>(req_msgbuf->buf_);
+  // auto* entry_ptr = message->data()->Data();
+  // c->rpc->resize_msg_buffer(&req_msgbuf, message->data()->size());
+  // req_msgbuf->buf_ = entry_ptr;
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeReq);
 
   // Reconstruct an app_appendentries_t in req_msgbuf. The entry buffers the
@@ -99,10 +109,10 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   // to not use static_msg_entry_arr for the unpacked entries, in which case
   // we free the dynamic memory later below.
   msg_entry_t static_msg_entry_arr[app_appendentries_t::kStaticMsgEntryArrSize];
-  app_appendentries_t::unpack(req_msgbuf, static_msg_entry_arr,
+  app_appendentries_t::unpack(message->data()->Data(), message->data()->size(),static_msg_entry_arr,
                               c->server.log_entry_appdata_pool);
 
-  auto *ae_req = reinterpret_cast<app_appendentries_t *>(req_msgbuf->buf_);
+  auto *ae_req = (app_appendentries_t *)(message->data()->Data());
   msg_appendentries_t &msg_ae = ae_req->msg_ae;
 
   if (kAppVerbose) {
@@ -113,8 +123,6 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   }
 
   erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
-  c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(msg_appendentries_response_t));
-
   // Only the buffers for entries in the append
   int e = raft_recv_appendentries(
       c->server.raft, raft_get_node(c->server.raft, ae_req->node_id), &msg_ae,
@@ -124,6 +132,15 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (msg_ae.entries != static_msg_entry_arr) delete[] msg_ae.entries;
 
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kSendAeResp);
+   // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)resp_msgbuf.buf_, sizeof(msg_appendentries_response_t));
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(ser_size));
+  memcpy(resp_msgbuf.buf_, buf, ser_size);
   c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -169,7 +186,15 @@ static int smr_raft_send_appendentries_cb(raft_server_t *, void *,
   rrt->node = node;
 
   app_appendentries_t::serialize(rrt->req_msgbuf, c->server.node_id, msg_ae);
-
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)rrt->req_msgbuf.buf_, rrt->req_msgbuf.get_data_size());
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&rrt->req_msgbuf, ser_size);
+  memcpy(rrt->req_msgbuf.buf_, buf, ser_size);
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kSendAeReq);
   c->rpc->enqueue_request(conn->session_num,
                           static_cast<uint8_t>(ReqType::kAppendEntries),
@@ -178,10 +203,14 @@ static int smr_raft_send_appendentries_cb(raft_server_t *, void *,
   return 0;
 }
 
+// call back
 void appendentries_cont(void *_context, void *_tag) {
   auto *c = static_cast<AppContext *>(_context);
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeResp);
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
+  // 反序列化
+  auto* message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
+  auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
 
   if (likely(rrt->resp_msgbuf.get_data_size() > 0)) {
     // The RPC was successful
@@ -193,8 +222,7 @@ void appendentries_cont(void *_context, void *_tag) {
 
     int e = raft_recv_appendentries_response(
         c->server.raft, rrt->node,
-        reinterpret_cast<msg_appendentries_response_t *>(
-            rrt->resp_msgbuf.buf_));
+        msg_ap_resp);
     erpc::rt_assert(e == 0 || e == RAFT_ERR_NOT_LEADER,
                     "raft_recv_appendentries_response error");
   } else {

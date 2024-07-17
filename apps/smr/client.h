@@ -56,6 +56,16 @@ void send_req_one(AppContext *c) {
   req->key = rand_key;
   req->value.v[0] = rand_key;
 
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)req, sizeof(client_req_t));
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&c->client.req_msgbuf, ser_size);
+  memcpy(c->client.req_msgbuf.buf_, buf, ser_size);
+
   if (kAppVerbose) {
     printf("smr: Client sending request %s to leader index %zu [%s].\n",
            req->to_string().c_str(), c->client.leader_idx,
@@ -63,8 +73,6 @@ void send_req_one(AppContext *c) {
   }
 
   connection_t &conn = c->conn_vec[c->client.leader_idx];
-
-  // 发送
   c->rpc->enqueue_request(
       conn.session_num, static_cast<uint8_t>(ReqType::kClientReq),
       &c->client.req_msgbuf, &c->client.resp_msgbuf, client_cont, nullptr);
@@ -101,9 +109,16 @@ void client_cont(void *_context, void *) {
   }
 
   if (likely(c->client.resp_msgbuf.get_data_size() > 0)) {
+
+    // 反序列化
+    auto message = flatbuffers::GetRoot<smr::Message>(c->client.resp_msgbuf.buf_);
+    auto size = message->data()->size();
+    erpc::rt_assert(size==sizeof(client_resp_t), "in call back,size not equal\n");
+    auto *client_resp = (client_resp_t *)(message->data()->Data());
+
     // The RPC was successful
-    auto *client_resp =
-        reinterpret_cast<client_resp_t *>(c->client.resp_msgbuf.buf_);
+    // auto *client_resp =
+    //     reinterpret_cast<client_resp_t *>(c->client.resp_msgbuf.buf_);
 
     if (kAppVerbose) {
       printf("smr: Client received resp %s [%s].\n",

@@ -4,6 +4,11 @@
  */
 
 #pragma once
+#include <cassert>
+#include <cstring>
+#include "common.h"
+#include "flatbuffers/message_generated.h"
+#include "msg_buffer.h"
 #include "smr.h"
 
 // With eRPC, there is currently no way for an RPC server to access connection
@@ -34,18 +39,35 @@ static std::string msg_requestvote_response_string(
 
 void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  assert(req_msgbuf->get_data_size() == sizeof(app_requestvote_t));
+  // 里面是序列化后的消息
+  const erpc::MsgBuffer *fb_req_msgbf = req_handle->get_req_msgbuf();
+  // 反序列化出来
+  auto message = flatbuffers::GetRoot<smr::Message>(fb_req_msgbf->buf_);
+  auto size = message->data()->size();
+  erpc::rt_assert(size==sizeof(app_requestvote_t), "in handler,size not equal\n");
+  // assert(size==sizeof(app_requestvote_t));
+  auto *rv_req = (app_requestvote_t *)(message->data()->Data());
 
-  auto *rv_req = reinterpret_cast<app_requestvote_t *>(req_msgbuf->buf_);
+  // const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  // Add serialization lib here
+
+  // message->data()->size()
+  // assert(req_msgbuf->get_data_size() == sizeof(app_requestvote_t));
+
+  // auto *rv_req = reinterpret_cast<app_requestvote_t *>(req_msgbuf->buf_);
+
   printf("smr: Received requestvote request from %s: %s [%s].\n",
          node_id_to_name_map[rv_req->node_id].c_str(),
          msg_requestvote_string(&rv_req->msg_rv).c_str(),
          erpc::get_formatted_time().c_str());
 
+
+  // 这个是发送回复的buffer
   erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
+
   c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(msg_requestvote_response_t));
 
+  // 待发送的回复
   auto *rv_resp =
       reinterpret_cast<msg_requestvote_response_t *>(resp_msgbuf.buf_);
 
@@ -55,12 +77,19 @@ void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
                                 raft_get_node(c->server.raft, rv_req->node_id),
                                 &rv_req->msg_rv, rv_resp);
   erpc::rt_assert(e == 0, "raft_recv_requestvote failed");
-
   printf("smr: Sending requestvote response to %s: %s [%s].\n",
          node_id_to_name_map[rv_req->node_id].c_str(),
          msg_requestvote_response_string(rv_resp).c_str(),
          erpc::get_formatted_time().c_str());
-
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)rv_resp, sizeof(msg_requestvote_response_t));
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&resp_msgbuf, ser_size);
+  memcpy(resp_msgbuf.buf_, buf, ser_size);
   c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -90,7 +119,15 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
   auto *rv_req = reinterpret_cast<app_requestvote_t *>(rrt->req_msgbuf.buf_);
   rv_req->node_id = c->server.node_id;
   rv_req->msg_rv = *msg_rv;
-
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector((uint8_t*)rv_req, sizeof(app_requestvote_t));
+  auto fb_message = smr::CreateMessage(builder,offset);
+  builder.Finish(fb_message);
+  uint8_t *buf = builder.GetBufferPointer();
+  size_t ser_size = builder.GetSize();
+  c->rpc->resize_msg_buffer(&rrt->req_msgbuf, ser_size);
+  memcpy(rrt->req_msgbuf.buf_, buf, ser_size);
   c->rpc->enqueue_request(conn->session_num,
                           static_cast<uint8_t>(ReqType::kRequestVote),
                           &rrt->req_msgbuf, &rrt->resp_msgbuf, requestvote_cont,
@@ -98,12 +135,18 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
   return 0;
 }
 
+// real callback
 void requestvote_cont(void *_context, void *_tag) {
   auto *c = static_cast<AppContext *>(_context);
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
+  // 反序列化
+  auto message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
+  auto size = message->data()->size();
+  erpc::rt_assert(size==sizeof(msg_requestvote_response_t), "in call back,size not equal\n");
+  auto *msg_rv_resp = (msg_requestvote_response_t *)(message->data()->Data());
 
-  auto *msg_rv_resp =
-      reinterpret_cast<msg_requestvote_response_t *>(rrt->resp_msgbuf.buf_);
+  // auto *msg_rv_resp =
+  //     reinterpret_cast<msg_requestvote_response_t *>(rrt->resp_msgbuf.buf_);
 
   if (likely(rrt->resp_msgbuf.get_data_size() > 0)) {
     // The RPC was successful
