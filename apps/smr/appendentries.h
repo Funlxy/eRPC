@@ -180,9 +180,9 @@ static int smr_raft_send_appendentries_cb(raft_server_t *, void *,
                   "send_appendentries_cb: Message size too large");
 
   raft_req_tag_t *rrt = c->server.raft_req_tag_pool.alloc();
-  rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(req_size);
+  rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(req_size+30);
   rrt->resp_msgbuf =
-      c->rpc->alloc_msg_buffer_or_die(sizeof(msg_appendentries_response_t));
+      c->rpc->alloc_msg_buffer_or_die(sizeof(msg_appendentries_response_t)+30);
   rrt->node = node;
 
   app_appendentries_t::serialize(rrt->req_msgbuf, c->server.node_id, msg_ae);
