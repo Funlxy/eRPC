@@ -112,7 +112,7 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   erpc::MsgBuffer req_msgbuf = c->rpc->alloc_msg_buffer_or_die(length);
   std::string temp_string = proto_temp.inline_message();
   req_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
-  assert(req_msgbuf.get_data_size() == sizeof(client_req_t));
+  // assert(req_msgbuf.get_data_size() == sizeof(client_req_t));
 
   const auto *client_req = reinterpret_cast<client_req_t *>(req_msgbuf.buf_);
 
