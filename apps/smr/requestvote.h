@@ -33,21 +33,29 @@ static std::string msg_requestvote_response_string(
 }
 
 void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
+  ERPC_WARN("In requestvote_handler\n");
   auto *c = static_cast<AppContext *>(_context);
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  assert(req_msgbuf->get_data_size() == sizeof(app_requestvote_t));
+  const erpc::MsgBuffer *proto_req_msgbuf = req_handle->get_req_msgbuf();
 
-  auto *rv_req = reinterpret_cast<app_requestvote_t *>(req_msgbuf->buf_);
+  msg proto_temp;
+  proto_temp.ParseFromArray(proto_req_msgbuf->buf_, proto_req_msgbuf->get_data_size());
+  int length = proto_temp.ByteSizeLong();
+  erpc::MsgBuffer req_msgbuf = c->rpc->alloc_msg_buffer_or_die(length);
+  std::string temp_string = proto_temp.inline_message();
+  req_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
+  assert(req_msgbuf.get_data_size() == sizeof(app_requestvote_t));
+
+  app_requestvote_t *rv_req = reinterpret_cast<app_requestvote_t *>(req_msgbuf.buf_);
   printf("smr: Received requestvote request from %s: %s [%s].\n",
          node_id_to_name_map[rv_req->node_id].c_str(),
          msg_requestvote_string(&rv_req->msg_rv).c_str(),
          erpc::get_formatted_time().c_str());
 
-  erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
-  c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(msg_requestvote_response_t));
+  erpc::MsgBuffer proto_resp_msgbuf = c->rpc->alloc_msg_buffer_or_die( sizeof(msg_requestvote_response_t) );
+  c->rpc->resize_msg_buffer(&proto_resp_msgbuf, sizeof(msg_requestvote_response_t));
 
   auto *rv_resp =
-      reinterpret_cast<msg_requestvote_response_t *>(resp_msgbuf.buf_);
+      reinterpret_cast<msg_requestvote_response_t *>(proto_resp_msgbuf.buf_);
 
   // rv_req->msg_rv is valid only for the duration of this handler, which is OK
   // as msg_requestvote_t does not contain any dynamically allocated members.
@@ -60,6 +68,13 @@ void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
          node_id_to_name_map[rv_req->node_id].c_str(),
          msg_requestvote_response_string(rv_resp).c_str(),
          erpc::get_formatted_time().c_str());
+
+  msg r_proto_temp;
+  std::string r_temp_string((char*)(proto_resp_msgbuf.buf_), proto_resp_msgbuf.get_data_size());
+  r_proto_temp.set_inline_message(r_temp_string);
+  length = r_proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_, length);
+  r_proto_temp.SerializeToArray(req_handle->pre_resp_msgbuf_.buf_, length);
 
   c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
@@ -85,15 +100,24 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
   raft_req_tag_t *rrt = c->server.raft_req_tag_pool.alloc();
   rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
   rrt->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
+  rrt->proto_req_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
+  rrt->proto_resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(app_requestvote_t));
   rrt->node = node;
 
   auto *rv_req = reinterpret_cast<app_requestvote_t *>(rrt->req_msgbuf.buf_);
   rv_req->node_id = c->server.node_id;
   rv_req->msg_rv = *msg_rv;
 
+  msg proto_temp;
+  std::string temp_string((char*)(rrt->req_msgbuf.buf_), rrt->req_msgbuf.get_data_size());
+  proto_temp.set_inline_message(temp_string);
+  int length = proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&rrt->proto_req_msgbuf, length);
+  proto_temp.SerializeToArray(rrt->proto_req_msgbuf.buf_, length);
+
   c->rpc->enqueue_request(conn->session_num,
                           static_cast<uint8_t>(ReqType::kRequestVote),
-                          &rrt->req_msgbuf, &rrt->resp_msgbuf, requestvote_cont,
+                          &rrt->proto_req_msgbuf, &rrt->proto_resp_msgbuf, requestvote_cont,
                           reinterpret_cast<void *>(rrt));
   return 0;
 }
@@ -101,7 +125,13 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
 void requestvote_cont(void *_context, void *_tag) {
   auto *c = static_cast<AppContext *>(_context);
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
-
+  
+  msg proto_temp;
+  proto_temp.ParseFromArray(rrt->proto_resp_msgbuf.buf_, rrt->proto_resp_msgbuf.get_data_size());
+  int length = proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&rrt->resp_msgbuf, length);
+  std::string temp_string = proto_temp.inline_message();
+  rrt->resp_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
   auto *msg_rv_resp =
       reinterpret_cast<msg_requestvote_response_t *>(rrt->resp_msgbuf.buf_);
 
@@ -126,5 +156,7 @@ void requestvote_cont(void *_context, void *_tag) {
 
   c->rpc->free_msg_buffer(rrt->req_msgbuf);
   c->rpc->free_msg_buffer(rrt->resp_msgbuf);
+  c->rpc->free_msg_buffer(rrt->proto_req_msgbuf);
+  c->rpc->free_msg_buffer(rrt->proto_resp_msgbuf);
   c->server.raft_req_tag_pool.free(rrt);
 }

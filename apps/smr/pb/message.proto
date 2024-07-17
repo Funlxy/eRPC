@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+message msg{
+    bytes inline_message = 1;
+}

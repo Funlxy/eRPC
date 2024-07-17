@@ -246,7 +246,9 @@ if(APP STREQUAL "smr")
     set(LIBRARIES ${LIBRARIES} raft.lib)
   else()
     link_directories(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
-    set(LIBRARIES ${LIBRARIES} raft ${PMEM})
+    set(APP_ADDITIONAL_SOURCES
+    apps/smr/message.pb.cc)
+    set(LIBRARIES ${LIBRARIES} raft ${PMEM} protobuf::libprotobuf)
   endif()
 elseif(APP STREQUAL "masstree_analytics")
   # CMake-based Masstree library from anujkaliaiitd/masstree-beta

@@ -89,8 +89,18 @@ struct app_appendentries_t {
 // appendentries request format is like so:
 // node ID, msg_appendentries_t, [{size, buf}]
 void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
+  // ERPC_WARN("In appendentries_handler\n");
   auto *c = static_cast<AppContext *>(_context);
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  const erpc::MsgBuffer *proto_req_msgbuf = req_handle->get_req_msgbuf();
+
+  msg proto_temp;
+  proto_temp.ParseFromArray(proto_req_msgbuf->buf_, proto_req_msgbuf->get_data_size());
+  // ERPC_WARN("In appendentries_handler, proto_temp.Parsed\n");
+  int length = proto_temp.ByteSizeLong();
+  erpc::MsgBuffer req_msgbuf = c->rpc->alloc_msg_buffer_or_die(length);
+  std::string temp_string = proto_temp.inline_message();
+  req_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
+  // ERPC_WARN("In appendentries_handler, req_msgbuf.buf_ = (uint8_t*)temp_string.c_str();\n");
 
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeReq);
 
@@ -99,10 +109,10 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
   // to not use static_msg_entry_arr for the unpacked entries, in which case
   // we free the dynamic memory later below.
   msg_entry_t static_msg_entry_arr[app_appendentries_t::kStaticMsgEntryArrSize];
-  app_appendentries_t::unpack(req_msgbuf, static_msg_entry_arr,
+  app_appendentries_t::unpack(&req_msgbuf, static_msg_entry_arr,
                               c->server.log_entry_appdata_pool);
 
-  auto *ae_req = reinterpret_cast<app_appendentries_t *>(req_msgbuf->buf_);
+  auto *ae_req = reinterpret_cast<app_appendentries_t *>(req_msgbuf.buf_);
   msg_appendentries_t &msg_ae = ae_req->msg_ae;
 
   if (kAppVerbose) {
@@ -112,18 +122,26 @@ void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
            erpc::get_formatted_time().c_str());
   }
 
-  erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
-  c->rpc->resize_msg_buffer(&resp_msgbuf, sizeof(msg_appendentries_response_t));
+  erpc::MsgBuffer proto_resp_msgbuf = c->rpc->alloc_msg_buffer_or_die( sizeof(msg_appendentries_response_t) );
+  c->rpc->resize_msg_buffer(&proto_resp_msgbuf, sizeof(msg_appendentries_response_t));
 
   // Only the buffers for entries in the append
   int e = raft_recv_appendentries(
       c->server.raft, raft_get_node(c->server.raft, ae_req->node_id), &msg_ae,
-      reinterpret_cast<msg_appendentries_response_t *>(resp_msgbuf.buf_));
+      reinterpret_cast<msg_appendentries_response_t *>(proto_resp_msgbuf.buf_));
   erpc::rt_assert(e == 0, "raft_recv_appendentries failed");
 
   if (msg_ae.entries != static_msg_entry_arr) delete[] msg_ae.entries;
 
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kSendAeResp);
+
+  msg r_proto_temp;
+  std::string r_temp_string((char*)(proto_resp_msgbuf.buf_), proto_resp_msgbuf.get_data_size());
+  r_proto_temp.set_inline_message(r_temp_string);
+  length = r_proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_, length);
+  r_proto_temp.SerializeToArray(req_handle->pre_resp_msgbuf_.buf_, length);
+
   c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -163,25 +181,41 @@ static int smr_raft_send_appendentries_cb(raft_server_t *, void *,
                   "send_appendentries_cb: Message size too large");
 
   raft_req_tag_t *rrt = c->server.raft_req_tag_pool.alloc();
+  rrt->proto_req_msgbuf = c->rpc->alloc_msg_buffer_or_die(req_size);
+  rrt->proto_resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(msg_appendentries_response_t));
   rrt->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(req_size);
-  rrt->resp_msgbuf =
-      c->rpc->alloc_msg_buffer_or_die(sizeof(msg_appendentries_response_t));
+  rrt->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(msg_appendentries_response_t));
   rrt->node = node;
 
   app_appendentries_t::serialize(rrt->req_msgbuf, c->server.node_id, msg_ae);
 
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kSendAeReq);
+  
+  msg proto_temp;
+  std::string temp_string((char*)(rrt->req_msgbuf.buf_), rrt->req_msgbuf.get_data_size());
+  proto_temp.set_inline_message(temp_string);
+  int length = proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&rrt->proto_req_msgbuf, length);
+  proto_temp.SerializeToArray(rrt->proto_req_msgbuf.buf_, length);
   c->rpc->enqueue_request(conn->session_num,
                           static_cast<uint8_t>(ReqType::kAppendEntries),
-                          &rrt->req_msgbuf, &rrt->resp_msgbuf,
+                          &rrt->proto_req_msgbuf, &rrt->proto_resp_msgbuf,
                           appendentries_cont, reinterpret_cast<void *>(rrt));
   return 0;
 }
 
 void appendentries_cont(void *_context, void *_tag) {
   auto *c = static_cast<AppContext *>(_context);
-  if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeResp);
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
+
+  msg proto_temp;
+  proto_temp.ParseFromArray(rrt->proto_resp_msgbuf.buf_, rrt->proto_resp_msgbuf.get_data_size());
+  int length = proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&rrt->resp_msgbuf, length);
+  std::string temp_string = proto_temp.inline_message();
+  rrt->resp_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
+  
+  if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kRecvAeResp);
 
   if (likely(rrt->resp_msgbuf.get_data_size() > 0)) {
     // The RPC was successful
@@ -206,5 +240,7 @@ void appendentries_cont(void *_context, void *_tag) {
 
   c->rpc->free_msg_buffer(rrt->req_msgbuf);
   c->rpc->free_msg_buffer(rrt->resp_msgbuf);
+  c->rpc->free_msg_buffer(rrt->proto_req_msgbuf);
+  c->rpc->free_msg_buffer(rrt->proto_resp_msgbuf);
   c->server.raft_req_tag_pool.free(rrt);
 }

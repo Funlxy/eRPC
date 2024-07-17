@@ -18,6 +18,9 @@
 #include "util/autorun_helpers.h"
 #include "util/hdr_histogram_wrapper.h"
 
+#include "util/logger.h"
+#include "message.pb.h"
+
 extern "C" {
 #include <raft.h>
 }
@@ -122,7 +125,9 @@ struct connection_t {
 // Tag for requests sent to Raft peers (both requestvote and appendentries)
 struct raft_req_tag_t {
   erpc::MsgBuffer req_msgbuf;
+  erpc::MsgBuffer proto_req_msgbuf;
   erpc::MsgBuffer resp_msgbuf;
+  erpc::MsgBuffer proto_resp_msgbuf;
   raft_node_t *node;  // The Raft node to which req was sent
 };
 

@@ -4,7 +4,6 @@
  */
 
 #pragma once
-#include <iostream>
 #include "smr.h"
 
 // Change the leader to a different Raft server that we are connected to
@@ -50,8 +49,9 @@ void client_cont(void *, void *);  // Forward declaration
 void send_req_one(AppContext *c) {
   c->client.chrono_timer.reset();
 
+  erpc::MsgBuffer proto_msg = c->rpc->alloc_msg_buffer_or_die(sizeof(client_req_t));
   // Format the client's PUT request. Key and value are identical.
-  auto *req = reinterpret_cast<client_req_t *>(c->client.req_msgbuf.buf_);
+  auto *req = reinterpret_cast<client_req_t *>(proto_msg.buf_);
   size_t rand_key = c->fast_rand.next_u32() & (kAppNumKeys - 1);
   req->key = rand_key;
   req->value.v[0] = rand_key;
@@ -64,7 +64,14 @@ void send_req_one(AppContext *c) {
 
   connection_t &conn = c->conn_vec[c->client.leader_idx];
 
-  // 发送
+  
+  msg proto_temp;
+  std::string temp_string((char*)(proto_msg.buf_), proto_msg.get_data_size());
+  proto_temp.set_inline_message(temp_string);
+  int length = proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&c->client.req_msgbuf, length);
+  proto_temp.SerializeToArray(c->client.req_msgbuf.buf_, length);
+
   c->rpc->enqueue_request(
       conn.session_num, static_cast<uint8_t>(ReqType::kClientReq),
       &c->client.req_msgbuf, &c->client.resp_msgbuf, client_cont, nullptr);
@@ -101,9 +108,18 @@ void client_cont(void *_context, void *) {
   }
 
   if (likely(c->client.resp_msgbuf.get_data_size() > 0)) {
+    
+    erpc::MsgBuffer resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(sizeof(client_resp_t));
+    msg proto_temp;
+    proto_temp.ParseFromArray(c->client.resp_msgbuf.buf_, c->client.resp_msgbuf.get_data_size());
+    int length = proto_temp.ByteSizeLong();
+    c->rpc->resize_msg_buffer(&resp_msgbuf, length);
+    std::string temp_string = proto_temp.inline_message();
+    resp_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
+
     // The RPC was successful
     auto *client_resp =
-        reinterpret_cast<client_resp_t *>(c->client.resp_msgbuf.buf_);
+        reinterpret_cast<client_resp_t *>(resp_msgbuf.buf_);
 
     if (kAppVerbose) {
       printf("smr: Client received resp %s [%s].\n",
@@ -170,7 +186,7 @@ void client_func(erpc::Nexus *nexus, AppContext *c) {
   // Raft client: Create session to each Raft server
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
     std::string uri = erpc::get_uri_for_process(i);
-    printf("client smr: Creating session to %s, index = %zu.\n", uri.c_str(), i);
+    printf("smr: Creating session to %s, index = %zu.\n", uri.c_str(), i);
 
     c->conn_vec[i].session_idx = i;
     c->conn_vec[i].session_num = c->rpc->create_session(uri, kAppServerRpcId);

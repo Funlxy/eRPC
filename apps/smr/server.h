@@ -79,13 +79,19 @@ void send_client_response(AppContext *c, erpc::ReqHandle *req_handle,
            client_resp.to_string().c_str(), erpc::get_formatted_time().c_str());
   }
 
-  erpc::MsgBuffer &resp_msgbuf = req_handle->pre_resp_msgbuf_;
-  auto *_client_resp = reinterpret_cast<client_resp_t *>(resp_msgbuf.buf_);
+  erpc::MsgBuffer proto_resp_msgbuf = c->rpc->alloc_msg_buffer_or_die( sizeof(client_resp_t) );
+  c->rpc->resize_msg_buffer(&proto_resp_msgbuf, sizeof(client_resp_t));
+  auto *_client_resp = reinterpret_cast<client_resp_t *>(proto_resp_msgbuf.buf_);
   *_client_resp = client_resp;
 
-  c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                            sizeof(client_resp_t));
-  c->rpc->enqueue_response(req_handle, &resp_msgbuf);
+  msg r_proto_temp;
+  std::string r_temp_string((char*)(proto_resp_msgbuf.buf_), proto_resp_msgbuf.get_data_size());
+  r_proto_temp.set_inline_message(r_temp_string);
+  int length = r_proto_temp.ByteSizeLong();
+  c->rpc->resize_msg_buffer(&req_handle->pre_resp_msgbuf_, length);
+  r_proto_temp.SerializeToArray(req_handle->pre_resp_msgbuf_.buf_, length);
+
+  c->rpc->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
 void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
@@ -98,9 +104,17 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   if (kAppMeasureCommitLatency) leader_sav.start_tsc = erpc::rdtsc();
   if (kAppTimeEnt) c->server.time_ents.emplace_back(TimeEntType::kClientReq);
 
-  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  assert(req_msgbuf->get_data_size() == sizeof(client_req_t));
-  const auto *client_req = reinterpret_cast<client_req_t *>(req_msgbuf->buf_);
+  const erpc::MsgBuffer *proto_req_msgbuf = req_handle->get_req_msgbuf();
+
+  msg proto_temp;
+  proto_temp.ParseFromArray(proto_req_msgbuf->buf_, proto_req_msgbuf->get_data_size());
+  int length = proto_temp.ByteSizeLong();
+  erpc::MsgBuffer req_msgbuf = c->rpc->alloc_msg_buffer_or_die(length);
+  std::string temp_string = proto_temp.inline_message();
+  req_msgbuf.buf_ = (uint8_t*)temp_string.c_str();
+  assert(req_msgbuf.get_data_size() == sizeof(client_req_t));
+
+  const auto *client_req = reinterpret_cast<client_req_t *>(req_msgbuf.buf_);
 
   // Check if it's OK to receive the client's request
   raft_node_t *leader = raft_get_current_leader_node(c->server.raft);
@@ -153,7 +167,6 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
 }
 
 void init_erpc(AppContext *c, erpc::Nexus *nexus) {
-  // 这里注册三个？对应不同的ReqType
   nexus->register_req_func(static_cast<uint8_t>(ReqType::kRequestVote),
                            requestvote_handler);
 
@@ -169,7 +182,6 @@ void init_erpc(AppContext *c, erpc::Nexus *nexus) {
   c->rpc->retry_connect_on_invalid_rpc_id_ = true;
 
   // Create a session to each Raft server, excluding self
-  // server 与 server相连，不与client相连
   for (size_t i = 0; i < FLAGS_num_raft_servers; i++) {
     if (i == FLAGS_process_id) continue;
     std::string uri = erpc::get_uri_for_process(i);
@@ -180,11 +192,8 @@ void init_erpc(AppContext *c, erpc::Nexus *nexus) {
     assert(c->conn_vec[i].session_num >= 0);
   }
 
-
-  // 等待连接
   while (c->num_sm_resps != FLAGS_num_raft_servers - 1) {
     c->rpc->run_event_loop(200);  // 200 ms
-
     if (ctrl_c_pressed == 1) {
       delete c->rpc;
       exit(0);
@@ -255,6 +264,7 @@ void server_func(erpc::Nexus *nexus, AppContext *c) {
       raft_apply_all(c->server.raft);
 
       leader_sav.in_use = false;
+      //这里记录延迟
       if (kAppMeasureCommitLatency) {
         size_t commit_cycles = erpc::rdtsc() - leader_sav.start_tsc;
         double commit_usec =
