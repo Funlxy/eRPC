@@ -61,7 +61,8 @@ void send_req_one(AppContext *c) {
            req->to_string().c_str(), c->client.leader_idx,
            erpc::get_formatted_time().c_str());
   }
-  printf("send_req: key:%lu,value%lu\n",req->key,req->value);
+  std::cout << req->to_string() << std::endl;
+  // printf("send_req: key:%lu,value%lu\n",req->key,req->value);
   // 序列化
   flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector((uint8_t*)req, sizeof(client_req_t));

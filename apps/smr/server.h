@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
 #include "appendentries.h"
 #include "log_callbacks.h"
 #include "requestvote.h"
@@ -113,7 +114,7 @@ void client_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // auto* msg_ap_resp = (msg_appendentries_response_t *)(message->data()->Data());
   assert(message->data()->size()== sizeof(client_req_t));
   const auto *client_req = (client_req_t *)(message->data()->Data());
-
+  std::cout << client_req->to_string() << std::endl;
   // Check if it's OK to receive the client's request
   raft_node_t *leader = raft_get_current_leader_node(c->server.raft);
   if (unlikely(leader == nullptr)) {
