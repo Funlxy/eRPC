@@ -66,7 +66,7 @@ class ClientContext : public BasicAppContext {
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   /* Deserialize Req */
-  auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf());
+  auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
   flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
@@ -136,7 +136,7 @@ inline void send_req(ClientContext &c) {
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
   c.rpc_->resize_msg_buffer(&c.req_msgbuf_, serialized_size);
-  printf("ser:%d\n",serialized_size);
+  printf("ser:%d:%d\n",c.req_size_,serialized_size);
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
 
@@ -156,7 +156,6 @@ void app_cont_func(void *_context, void *) {
    /* Deserialize Req */
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf_.buf_);
   erpc::rt_assert(Resp->message()->size()==FLAGS_resp_size,"Check Resp Size Error!\n");                                                 /* Serialize Resp */
-  flatbuffers::FlatBufferBuilder builder;
 
   if (kAppVerbose) {
     printf("Latency: Received response of size %zu bytes\n",
