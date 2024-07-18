@@ -89,7 +89,7 @@ void server_func(erpc::Nexus *nexus) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
 
-  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size + 16);
+  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size + 64);
   c.rpc_ = &rpc;
 
   while (true) {
@@ -187,8 +187,8 @@ void client_func(erpc::Nexus *nexus) {
   c.req_size_ = FLAGS_req_size;
 
   // extra bytes for MetaData of Serialize
-  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_req_size+16);
-  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+16);
+  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_req_size+64);
+  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+64);
 
   connect_sessions(c);
 
