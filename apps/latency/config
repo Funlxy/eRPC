@@ -1,6 +1,7 @@
 --test_ms 200000000
 --sm_verbose 0
---resp_size 8
+--req_size 64
+--resp_size 64
 --num_server_processes 1
 --numa_0_ports 0
 --numa_1_ports 1,3

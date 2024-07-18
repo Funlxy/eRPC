@@ -1,16 +1,20 @@
 #include "util/latency.h"
 
+#include <flatbuffers/buffer.h>
+#include <flatbuffers/flatbuffer_builder.h>
 #include <gflags/gflags.h>
 #include <signal.h>
 
+#include <cstdint>
 #include <cstring>
 
 #include "../apps_common.h"
 #include "HdrHistogram_c/src/hdr_histogram.h"
+#include "common.h"
 #include "rpc.h"
 #include "util/autorun_helpers.h"
 #include "util/numautils.h"
-
+#include "./flatbuffers/meessage_generated.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
 static constexpr bool kAppVerbose = false;    // Print debug info on datapath
 static constexpr size_t kAppReqType = 1;      // eRPC request type
@@ -25,6 +29,7 @@ void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
 
 DEFINE_uint64(num_server_processes, 1, "Number of server processes");
 DEFINE_uint64(resp_size, 8, "Size of the server's RPC response in bytes");
+DEFINE_uint64(req_size, 8, "Size of the client's RPC request in bytes");
 
 class ServerContext : public BasicAppContext {
  public:
@@ -59,8 +64,18 @@ class ClientContext : public BasicAppContext {
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
+  /* Deserialize Req */
+  auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf());
+  erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
+  auto Resp = Hello::CreateResponse(builder,offset);
+  builder.Finish(Resp);
+  auto *serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
   erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 FLAGS_resp_size);
+                                                 serialized_size);
+  memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -72,7 +87,9 @@ void server_func(erpc::Nexus *nexus) {
   ServerContext c;
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
-  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size);
+
+  // here wo use
+  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size + 16);
   c.rpc_ = &rpc;
 
   while (true) {
@@ -109,8 +126,18 @@ inline void send_req(ClientContext &c) {
     c.rpc_->resize_msg_buffer(&c.req_msgbuf_, c.req_size_);
     c.rpc_->resize_msg_buffer(&c.resp_msgbuf_, FLAGS_resp_size);
   }
-
   c.start_tsc_ = erpc::rdtsc();
+
+  /* Serialize */
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
+  /* Serialize */
+
   const size_t server_id = c.fastrand_.next_u32() % FLAGS_num_server_processes;
   c.rpc_->enqueue_request(c.session_num_vec_[server_id], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
@@ -151,10 +178,11 @@ void client_func(erpc::Nexus *nexus) {
 
   rpc.retry_connect_on_invalid_rpc_id_ = true;
   c.rpc_ = &rpc;
-  c.req_size_ = kAppStartReqSize;
+  c.req_size_ = FLAGS_req_size;
 
-  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(kAppEndReqSize);
-  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size);
+  // extra bytes for MetaData of Serialize
+  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_req_size+16);
+  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+16);
 
   connect_sessions(c);
 
