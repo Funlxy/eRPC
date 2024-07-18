@@ -97,7 +97,6 @@ static void unpack(const erpc::MsgBuffer *req_msgbuf,
 
 // 把它的序列化全部替换.
 void appendentries_handler(erpc::ReqHandle *req_handle, void *_context) {
-  printf("recv append\n");
   auto *c = static_cast<AppContext *>(_context);
   auto *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化

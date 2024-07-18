@@ -44,7 +44,7 @@ void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
   // 里面是序列化后的消息
   const erpc::MsgBuffer *req_msgbf = req_handle->get_req_msgbuf();
-  printf("recv vote, size = %d.", req_msgbf->get_data_size());
+  // printf("recv vote, size = %d.", req_msgbf->get_data_size());
 
   // 反序列化出来
   auto message = flatbuffers::GetRoot<smr::Message>(req_msgbf->buf_);
@@ -84,7 +84,7 @@ void requestvote_handler(erpc::ReqHandle *req_handle, void *_context) {
   builder.Finish(fb_message);
   uint8_t *buf = builder.GetBufferPointer();
   size_t ser_size = builder.GetSize();
-  printf("send vote resp, size = %d.", ser_size);
+  // printf("send vote resp, size = %d.", ser_size);
 
   c->rpc->resize_msg_buffer(&resp_msgbuf, ser_size);
   memcpy(resp_msgbuf.buf_, buf, ser_size);
@@ -123,7 +123,7 @@ static int smr_raft_send_requestvote_cb(raft_server_t *, void *,
   builder.Finish(fb_message);
   uint8_t *buf = builder.GetBufferPointer();
   size_t ser_size = builder.GetSize();
-  printf("send vote, size = %d.", ser_size);
+  // printf("send vote, size = %d.", ser_size);
   // std::cout << "send vote, size = " << ser_size << std::endl;
   c->rpc->resize_msg_buffer(&rrt->req_msgbuf, ser_size);
   memcpy(rrt->req_msgbuf.buf_, buf, ser_size);
@@ -140,7 +140,7 @@ void requestvote_cont(void *_context, void *_tag) {
   auto *rrt = reinterpret_cast<raft_req_tag_t *>(_tag);
   // 反序列化
   auto message = flatbuffers::GetRoot<smr::Message>(rrt->resp_msgbuf.buf_);
-  printf("recv vote resp, size = %d.", rrt->resp_msgbuf.get_data_size());
+  // printf("recv vote resp, size = %d.", rrt->resp_msgbuf.get_data_size());
   auto size = (int)message->data()->size();
   erpc::rt_assert(size==sizeof(msg_requestvote_response_t), "in call back,size not equal\n");
   auto *msg_rv_resp = (msg_requestvote_response_t *)(message->data()->Data());
