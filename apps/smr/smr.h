@@ -44,7 +44,7 @@ static_assert(kAppValueSize % sizeof(size_t) == 0, "");
 // Debug/measurement
 static constexpr bool kAppTimeEnt = false;
 static constexpr bool kAppMeasureCommitLatency = true;  // Leader latency
-static constexpr bool kAppVerbose = false;
+static constexpr bool kAppVerbose = true;
 static constexpr bool kAppEnableRaftConsoleLog = false;  // Non-null console log
 
 // willemt/raft uses a very large 1000 ms election timeout
