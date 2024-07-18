@@ -88,7 +88,6 @@ void server_func(erpc::Nexus *nexus) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
 
-  // here wo use
   rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size + 16);
   c.rpc_ = &rpc;
 
@@ -135,6 +134,7 @@ inline void send_req(ClientContext &c) {
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
+  c.rpc_->resize_msg_buffer(&c.req_msgbuf_, serialized_size);
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
 
@@ -150,7 +150,11 @@ inline void send_req(ClientContext &c) {
 
 void app_cont_func(void *_context, void *) {
   auto *c = static_cast<ClientContext *>(_context);
-  assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
+  // Deserialize
+   /* Deserialize Req */
+  auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf_.buf_);
+  erpc::rt_assert(Resp->message()->size()==FLAGS_resp_size,"Check Resp Size Error!\n");                                                 /* Serialize Resp */
+  flatbuffers::FlatBufferBuilder builder;
 
   if (kAppVerbose) {
     printf("Latency: Received response of size %zu bytes\n",
