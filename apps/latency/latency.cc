@@ -6,6 +6,7 @@
 #include <signal.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "../apps_common.h"
@@ -135,6 +136,7 @@ inline void send_req(ClientContext &c) {
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
   c.rpc_->resize_msg_buffer(&c.req_msgbuf_, serialized_size);
+  printf("ser:%d\n",serialized_size);
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
 
