@@ -118,14 +118,6 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
-  if (c.double_req_size_) {
-    c.double_req_size_ = false;
-    c.req_size_ *= 2;
-    if (c.req_size_ > kAppEndReqSize) c.req_size_ = kAppStartReqSize;
-
-    c.rpc_->resize_msg_buffer(&c.req_msgbuf_, c.req_size_);
-    c.rpc_->resize_msg_buffer(&c.resp_msgbuf_, FLAGS_resp_size);
-  }
   c.start_tsc_ = erpc::rdtsc();
 
   /* Serialize */
@@ -136,7 +128,6 @@ inline void send_req(ClientContext &c) {
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
   c.rpc_->resize_msg_buffer(&c.req_msgbuf_, serialized_size);
-  printf("ser:%d:%d\n",c.req_size_,serialized_size);
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
 
@@ -235,7 +226,6 @@ void client_func(erpc::Nexus *nexus) {
     }
 
     c.latency_samples_prev_ = c.latency_samples_;
-    c.double_req_size_ = true;
   }
 }
 
