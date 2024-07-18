@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+
 /* for varags */
 #include <stdarg.h>
 
@@ -233,8 +234,6 @@ int raft_periodic(raft_server_t* me_, int msec_since_last_period)
     if (me->state == RAFT_STATE_LEADER)
     {
         if (me->request_timeout <= me->timeout_elapsed)
-            printf("im leader,%d:%d\n",me->request_timeout,me->timeout_elapsed);
-
             raft_send_appendentries_all(me_);
     }
     else if (me->election_timeout_rand <= me->timeout_elapsed &&
@@ -722,6 +721,7 @@ int raft_recv_entry(raft_server_t* me_,
 {
     raft_server_private_t* me = (raft_server_private_t*)me_;
     int i;
+
     if (raft_entry_is_voting_cfg_change(ety))
     {
         /* Only one voting cfg change at a time */
@@ -733,8 +733,10 @@ int raft_recv_entry(raft_server_t* me_,
         if (!raft_is_apply_allowed(me_))
             return RAFT_ERR_SNAPSHOT_IN_PROGRESS;
     }
+
     if (!raft_is_leader(me_))
         return RAFT_ERR_NOT_LEADER;
+
     __log(me_, NULL, "received entry t:%d id: %d idx: %d",
           me->current_term, ety->id, raft_get_current_idx(me_) + 1);
 
@@ -1088,13 +1090,9 @@ int raft_msg_entry_response_committed(raft_server_t* me_,
     if (ety==NULL){
         return 0;
     }
-    printf("r->term: %d\n", r->term);
-    printf("ety->term: %d\n", ety->term);
     /* entry from another leader has invalidated this entry message */
-    if ((long)(r->term)!=(long)(ety->term))
-        printf("other\n");
+    if (r->term != ety->term)
         return -1;
-    printf("why?\n");
     return r->idx <= raft_get_commit_idx(me_);
 }
 

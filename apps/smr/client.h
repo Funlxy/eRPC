@@ -61,7 +61,6 @@ void send_req_one(AppContext *c) {
            req->to_string().c_str(), c->client.leader_idx,
            erpc::get_formatted_time().c_str());
   }
-  std::cout << req->to_string() << std::endl;
   // printf("send_req: key:%lu,value%lu\n",req->key,req->value);
   // 序列化
   flatbuffers::FlatBufferBuilder builder;
@@ -79,7 +78,6 @@ void send_req_one(AppContext *c) {
 }
 
 void client_cont(void *_context, void *) {
-  printf("client recv response\n");
   auto *c = static_cast<AppContext *>(_context);
   const double latency_us = c->client.chrono_timer.get_ns() / 1000.0;
   c->client.lat_us_hdr_histogram.insert(latency_us);

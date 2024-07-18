@@ -128,16 +128,16 @@ typedef struct
 typedef struct
 {
     /** currentTerm, to force other leader/candidate to step down */
-    raft_term_t term;
+    raft_term_t term; //long int
 
     /** candidate requesting vote */
-    raft_node_id_t candidate_id;
+    raft_node_id_t candidate_id; // int 
 
     /** index of candidate's last log entry */
-    raft_index_t last_log_idx;
+    raft_index_t last_log_idx; // long int
 
     /** term of candidate's last log entry */
-    raft_term_t last_log_term;
+    raft_term_t last_log_term; //long int
 } msg_requestvote_t;
 
 /** Vote request response message.
@@ -185,7 +185,7 @@ typedef struct
 typedef struct
 {
     /** currentTerm, to force other leader/candidate to step down */
-    raft_term_t term;
+    raft_term_t term; // long int
 
     /** true if follower contained entry matching prevLogidx and prevLogTerm */
     int success;
@@ -196,10 +196,10 @@ typedef struct
 
     /** If success, this is the highest log IDX we've received and appended to
      * our log; otherwise, this is the our currentIndex */
-    raft_index_t current_idx;
+    raft_index_t current_idx; // long int
 
     /** The first idx that we received within the appendentries message */
-    raft_index_t first_idx;
+    raft_index_t first_idx; // long int
 } msg_appendentries_response_t;
 
 typedef void* raft_server_t;
