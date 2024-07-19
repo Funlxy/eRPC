@@ -24,7 +24,7 @@
 #include "util/autorun_helpers.h"
 #include "./flatbuffers/meessage_generated.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
-static constexpr bool kAppVerbose = true;
+static constexpr bool kAppVerbose = false;
 
 // Experiment control flags
 static constexpr bool kAppClientMemsetReq = false;   // Fill entire request
@@ -162,7 +162,7 @@ void thread_func(size_t thread_id, app_stats_t *app_stats, erpc::Nexus *nexus) {
   // Any thread that creates a session sends requests
   if (c.session_num_vec_.size() > 0) {
     for (size_t msgbuf_idx = 0; msgbuf_idx < FLAGS_concurrency; msgbuf_idx++) {
-      printf("send req to %d\n",msgbuf_idx);
+      // printf("send req to %d\n",msgbuf_idx);
       send_req(&c, msgbuf_idx);
     }
   }
