@@ -1,4 +1,4 @@
---test_ms 200000000
+--test_ms 60000
 --sm_verbose 0
 --req_size 64
 --resp_size 64

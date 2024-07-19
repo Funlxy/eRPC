@@ -14,12 +14,14 @@
  */
 
 #include "large_rpc_tput.h"
+#include <flatbuffers/flatbuffer_builder.h>
 #include <signal.h>
+#include <cstdint>
 #include <cstring>
 #include "profile_incast.h"
 #include "profile_victim.h"
 #include "util/autorun_helpers.h"
-
+#include "./flatbuffers/meessage_generated.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
 static constexpr bool kAppVerbose = false;
 
@@ -54,6 +56,12 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  // // 反序列化
+  // auto* Req = flatbuffers::GetRoot<Hello::Request>(req_msgbuf->buf_);
+
+  // uint8_t resp_byte = Req->name()->Get(0);
+  // // 序列化
+  // flatbuffers::FlatBufferBuilder builder;
   uint8_t resp_byte = req_msgbuf->buf_[0];
 
   // Use dynamic response
