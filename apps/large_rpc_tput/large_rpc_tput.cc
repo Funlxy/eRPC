@@ -48,7 +48,7 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
   }
   // serialize
   c->req_ts[msgbuf_idx] = erpc::rdtsc();
-  flatbuffers::FlatBufferBuilder builder;
+  flatbuffers::FlatBufferBuilder builder(FLAGS_req_size+64);
   auto offset = builder.CreateVector(req_msgbuf.buf_, FLAGS_req_size);
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
@@ -81,7 +81,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
     resp_msgbuf.buf_[0] = resp_byte;
   }
   // 序列化
-  flatbuffers::FlatBufferBuilder builder;
+  flatbuffers::FlatBufferBuilder builder(FLAGS_resp_size+64);
   auto offset = builder.CreateVector(resp_msgbuf.buf_,FLAGS_resp_size);
   auto Resp = Hello::CreateResponse(builder,offset);
   builder.Finish(Resp);
