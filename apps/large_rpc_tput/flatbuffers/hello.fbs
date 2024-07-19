@@ -1,0 +1,9 @@
+namespace Hello;
+// The request message containing the user's name.
+table Request{
+    name:string;
+}
+// The response message containing the greetings
+table Response{
+    message:string;
+}

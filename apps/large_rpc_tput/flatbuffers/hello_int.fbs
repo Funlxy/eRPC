@@ -1,0 +1,5 @@
+namespace Hello;
+// The request message containing the user's name.
+table Request{
+    name:int;
+}

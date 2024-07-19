@@ -14,6 +14,7 @@
  */
 
 #include "large_rpc_tput.h"
+#include <flatbuffers/buffer.h>
 #include <flatbuffers/flatbuffer_builder.h>
 #include <signal.h>
 #include <cstdint>
@@ -39,45 +40,57 @@ void app_cont_func(void *, void *);  // Forward declaration
 // Send a request using this MsgBuffer
 void send_req(AppContext *c, size_t msgbuf_idx) {
   erpc::MsgBuffer &req_msgbuf = c->req_msgbuf[msgbuf_idx];
-  assert(req_msgbuf.get_data_size() == FLAGS_req_size);
+  // assert(req_msgbuf.get_data_size() == FLAGS_req_size + 64);
 
   if (kAppVerbose) {
     printf("large_rpc_tput: Thread %zu sending request using msgbuf_idx %zu.\n",
            c->thread_id_, msgbuf_idx);
   }
-
+  // serialize
   c->req_ts[msgbuf_idx] = erpc::rdtsc();
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector(req_msgbuf.buf_, FLAGS_req_size);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  auto *ser_pointer = builder.GetBufferPointer();
+  auto ser_size = builder.GetSize();
+  if(req_msgbuf.get_data_size()!=ser_size) {c->rpc_->resize_msg_buffer(&req_msgbuf, ser_size);}
+  memcpy(req_msgbuf.buf_, ser_pointer, ser_size);
   c->rpc_->enqueue_request(c->session_num_vec_[0], kAppReqType, &req_msgbuf,
                            &c->resp_msgbuf[msgbuf_idx], app_cont_func,
                            reinterpret_cast<void *>(msgbuf_idx));
 
-  c->stat_tx_bytes_tot += FLAGS_req_size;
+  c->stat_tx_bytes_tot += ser_size;
 }
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  // // 反序列化
-  // auto* Req = flatbuffers::GetRoot<Hello::Request>(req_msgbuf->buf_);
-
-  // uint8_t resp_byte = Req->name()->Get(0);
-  // // 序列化
-  // flatbuffers::FlatBufferBuilder builder;
-  uint8_t resp_byte = req_msgbuf->buf_[0];
-
+  // 反序列化
+  auto* Req = flatbuffers::GetRoot<Hello::Request>(req_msgbuf->buf_);
+  // uint8_t resp_byte = req_msgbuf->buf_[0];
+  uint8_t resp_byte = Req->name()->Get(0);
   // Use dynamic response
   erpc::MsgBuffer &resp_msgbuf = req_handle->dyn_resp_msgbuf_;
-  resp_msgbuf = c->rpc_->alloc_msg_buffer_or_die(FLAGS_resp_size);
-
+  resp_msgbuf = c->rpc_->alloc_msg_buffer_or_die(FLAGS_resp_size+16);
+  
   // Touch the response
   if (kAppServerMemsetResp) {
     memset(resp_msgbuf.buf_, resp_byte, FLAGS_resp_size);
   } else {
     resp_msgbuf.buf_[0] = resp_byte;
   }
-
-  c->stat_rx_bytes_tot += FLAGS_req_size;
-  c->stat_tx_bytes_tot += FLAGS_resp_size;
+  // 序列化
+  flatbuffers::FlatBufferBuilder builder;
+  auto offset = builder.CreateVector(resp_msgbuf.buf_,FLAGS_resp_size);
+  auto Resp = Hello::CreateResponse(builder,offset);
+  builder.Finish(Resp);
+  auto ser_pointer = builder.GetBufferPointer();
+  auto ser_size = builder.GetSize();
+  c->rpc_->resize_msg_buffer(&resp_msgbuf, ser_size);
+  memcpy(resp_msgbuf.buf_, ser_pointer, ser_size);
+  c->stat_rx_bytes_tot += req_msgbuf->get_data_size();
+  c->stat_tx_bytes_tot += ser_size;
 
   c->rpc_->enqueue_response(req_handle, &resp_msgbuf);
 }
@@ -87,6 +100,10 @@ void app_cont_func(void *_context, void *_tag) {
   auto msgbuf_idx = reinterpret_cast<size_t>(_tag);
 
   const erpc::MsgBuffer &resp_msgbuf = c->resp_msgbuf[msgbuf_idx];
+  // 反序列化
+  const auto *Resp = flatbuffers::GetRoot<Hello::Response>(resp_msgbuf.buf_);
+  
+  
   if (kAppVerbose) {
     printf("large_rpc_tput: Received response for msgbuf %zu.\n", msgbuf_idx);
   }
@@ -97,7 +114,7 @@ void app_cont_func(void *_context, void *_tag) {
   c->lat_vec.push_back(usec);
 
   // Check the response
-  erpc::rt_assert(resp_msgbuf.get_data_size() == FLAGS_resp_size,
+  erpc::rt_assert(Resp->message()->size() == FLAGS_resp_size,
                   "Invalid response size");
 
   if (kAppClientCheckResp) {
@@ -108,10 +125,10 @@ void app_cont_func(void *_context, void *_tag) {
     }
     erpc::rt_assert(match, "Invalid resp data");
   } else {
-    erpc::rt_assert(resp_msgbuf.buf_[0] == kAppDataByte, "Invalid resp data");
+    erpc::rt_assert(Resp->message()->Get(0) == kAppDataByte, "Invalid resp data");
   }
 
-  c->stat_rx_bytes_tot += FLAGS_resp_size;
+  c->stat_rx_bytes_tot += resp_msgbuf.get_data_size();
 
   // Create a new request clocking this response, and put in request queue
   if (kAppClientMemsetReq) {
@@ -162,7 +179,7 @@ void thread_func(size_t thread_id, app_stats_t *app_stats, erpc::Nexus *nexus) {
   // Any thread that creates a session sends requests
   if (c.session_num_vec_.size() > 0) {
     for (size_t msgbuf_idx = 0; msgbuf_idx < FLAGS_concurrency; msgbuf_idx++) {
-      printf("send req to %d, size = %zu\n",msgbuf_idx,FLAGS_req_size);
+      printf("send req to %ld, size = %zu\n",msgbuf_idx,FLAGS_req_size);
       send_req(&c, msgbuf_idx);
     }
   }
