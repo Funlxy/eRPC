@@ -10,7 +10,7 @@
 #include "rpc.h"
 #include "util/autorun_helpers.h"
 #include "util/numautils.h"
-
+#include "./protobuf/message.pb.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
 static constexpr bool kAppVerbose = false;    // Print debug info on datapath
 static constexpr size_t kAppReqType = 1;      // eRPC request type
@@ -24,6 +24,8 @@ volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
 
 DEFINE_uint64(num_server_processes, 1, "Number of server processes");
+DEFINE_uint64(req_size, 8, "Size of the server's RPC response in bytes");
+
 DEFINE_uint64(resp_size, 8, "Size of the server's RPC response in bytes");
 
 class ServerContext : public BasicAppContext {
@@ -59,8 +61,16 @@ class ClientContext : public BasicAppContext {
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
-  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 FLAGS_resp_size);
+  const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
+  // 反序列化
+  Hello::Req req;
+  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
+  // 序列化
+  auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
+  Hello::Resp resp;
+  resp.set_data(resp_msgbuf->buf_,FLAGS_resp_size);
+  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_msgbuf,
+                                                 resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
@@ -72,7 +82,7 @@ void server_func(erpc::Nexus *nexus) {
   ServerContext c;
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
-  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size);
+  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size+16);
   c.rpc_ = &rpc;
 
   while (true) {
@@ -101,16 +111,12 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
-  if (c.double_req_size_) {
-    c.double_req_size_ = false;
-    c.req_size_ *= 2;
-    if (c.req_size_ > kAppEndReqSize) c.req_size_ = kAppStartReqSize;
-
-    c.rpc_->resize_msg_buffer(&c.req_msgbuf_, c.req_size_);
-    c.rpc_->resize_msg_buffer(&c.resp_msgbuf_, FLAGS_resp_size);
-  }
-
   c.start_tsc_ = erpc::rdtsc();
+  // 序列化
+  Hello::Req req;
+  req.set_data(c.req_msgbuf_.buf_, c.req_size_);
+  req.SerializeToArray(c.req_msgbuf_.buf_, req.ByteSizeLong());
+  c.rpc_->resize_msg_buffer(&c.req_msgbuf_, req.ByteSizeLong());
   const size_t server_id = c.fastrand_.next_u32() % FLAGS_num_server_processes;
   c.rpc_->enqueue_request(c.session_num_vec_[server_id], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
@@ -123,13 +129,15 @@ inline void send_req(ClientContext &c) {
 
 void app_cont_func(void *_context, void *) {
   auto *c = static_cast<ClientContext *>(_context);
-  assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
-
+  // assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
+  // 反序列化
+  Hello::Resp resp;
+  resp.ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());
   if (kAppVerbose) {
     printf("Latency: Received response of size %zu bytes\n",
-           c->resp_msgbuf_.get_data_size());
+           resp.data().size());
   }
-
+  
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());
 
@@ -151,10 +159,10 @@ void client_func(erpc::Nexus *nexus) {
 
   rpc.retry_connect_on_invalid_rpc_id_ = true;
   c.rpc_ = &rpc;
-  c.req_size_ = kAppStartReqSize;
+  c.req_size_ = FLAGS_req_size;
 
-  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(kAppEndReqSize);
-  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size);
+  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(kAppEndReqSize+16);
+  c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+16);
 
   connect_sessions(c);
 

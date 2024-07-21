@@ -1,0 +1,10 @@
+syntax = "proto3";
+package Hello;
+
+message Req {
+  bytes data = 1;
+};
+
+message Resp {
+  bytes data = 1;
+};
