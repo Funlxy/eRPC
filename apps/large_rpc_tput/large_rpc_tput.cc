@@ -61,7 +61,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
   Hello::Req req;
-  req.ParseFromArray(req_msgbuf->buf_, FLAGS_req_size);
+  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   uint8_t resp_byte = req.data().at(0);
 
   // Use dynamic response
@@ -94,7 +94,7 @@ void app_cont_func(void *_context, void *_tag) {
   }
   // 反序列化
   Hello::Resp resp;
-  resp.ParseFromArray(resp_msgbuf.buf_, FLAGS_resp_size);
+  resp.ParseFromArray(resp_msgbuf.buf_,resp_msgbuf.get_data_size());
   // Measure latency. 1 us granularity is sufficient for large RPC latency.
   double usec = erpc::to_usec(erpc::rdtsc() - c->req_ts[msgbuf_idx],
                               c->rpc_->get_freq_ghz());
