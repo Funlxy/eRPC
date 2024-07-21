@@ -15,6 +15,7 @@
 
 #include "large_rpc_tput.h"
 #include <signal.h>
+#include <cstdio>
 #include <cstring>
 #include "profile_incast.h"
 #include "profile_victim.h"
@@ -37,7 +38,7 @@ void app_cont_func(void *, void *);  // Forward declaration
 // Send a request using this MsgBuffer
 void send_req(AppContext *c, size_t msgbuf_idx) {
   erpc::MsgBuffer &req_msgbuf = c->req_msgbuf[msgbuf_idx];
-  assert(req_msgbuf.get_data_size() == FLAGS_req_size);
+  // assert(req_msgbuf.get_data_size() == FLAGS_req_size);
   if (kAppVerbose) {
     printf("large_rpc_tput: Thread %zu sending request using msgbuf_idx %zu.\n",
            c->thread_id_, msgbuf_idx);
@@ -80,7 +81,8 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // 序列化
   Hello::Resp resp;
   resp.set_data(resp_msgbuf.buf_,FLAGS_resp_size);
-  c->rpc_->resize_msg_buffer(&resp_msgbuf, FLAGS_resp_size);
+  resp.SerializeToArray(resp_msgbuf.buf_, resp.ByteSizeLong());
+  c->rpc_->resize_msg_buffer(&resp_msgbuf, resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &resp_msgbuf);
 }
 
