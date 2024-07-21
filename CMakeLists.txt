@@ -248,7 +248,7 @@ if(APP STREQUAL "smr")
     link_directories(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
     set(APP_ADDITIONAL_SOURCES
     apps/smr/message.pb.cc)
-    set(LIBRARIES ${LIBRARIES} raft ${PMEM} protobuf::libprotobuf)
+    set(LIBRARIES ${LIBRARIES} raft ${PMEM})
   endif()
 elseif(APP STREQUAL "masstree_analytics")
   # CMake-based Masstree library from anujkaliaiitd/masstree-beta
@@ -404,12 +404,14 @@ endif()
 # Using link-time optimization sometimes requires building with sources instead
 # of liberpc. See the hello world example's Makefile for an example of
 # compiling with liberpc.
-add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES})
+set(APP_ADDITIONAL_SOURCES
+apps/large_rpc_tput/protobuf/message.pb.cc)
+add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES} )
 
 if(PERF)
   target_compile_options(${APP} PRIVATE "-flto")
 endif()
-target_link_libraries(${APP} ${LIBRARIES})
+target_link_libraries(${APP} ${LIBRARIES} protobuf::libprotobuf)
 
 # Compile hello_world apps
 add_executable(hello_server hello_world/server.cc)

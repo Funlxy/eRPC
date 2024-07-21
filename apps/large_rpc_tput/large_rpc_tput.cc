@@ -18,6 +18,7 @@
 #include <cstring>
 #include "profile_incast.h"
 #include "profile_victim.h"
+#include "protobuf/message.pb.h"
 #include "util/autorun_helpers.h"
 
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
@@ -37,13 +38,17 @@ void app_cont_func(void *, void *);  // Forward declaration
 void send_req(AppContext *c, size_t msgbuf_idx) {
   erpc::MsgBuffer &req_msgbuf = c->req_msgbuf[msgbuf_idx];
   assert(req_msgbuf.get_data_size() == FLAGS_req_size);
-
   if (kAppVerbose) {
     printf("large_rpc_tput: Thread %zu sending request using msgbuf_idx %zu.\n",
            c->thread_id_, msgbuf_idx);
   }
 
   c->req_ts[msgbuf_idx] = erpc::rdtsc();
+  //序列化 
+  Hello::Req req;
+  req.set_data(req_msgbuf.buf_,FLAGS_req_size);
+  req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
+  c->rpc_->resize_msg_buffer(&req_msgbuf, req.ByteSizeLong());
   c->rpc_->enqueue_request(c->session_num_vec_[0], kAppReqType, &req_msgbuf,
                            &c->resp_msgbuf[msgbuf_idx], app_cont_func,
                            reinterpret_cast<void *>(msgbuf_idx));
@@ -54,11 +59,14 @@ void send_req(AppContext *c, size_t msgbuf_idx) {
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<AppContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
-  uint8_t resp_byte = req_msgbuf->buf_[0];
+  // 反序列化
+  Hello::Req req;
+  req.ParseFromArray(req_msgbuf->buf_, FLAGS_req_size);
+  uint8_t resp_byte = req.data().at(0);
 
   // Use dynamic response
   erpc::MsgBuffer &resp_msgbuf = req_handle->dyn_resp_msgbuf_;
-  resp_msgbuf = c->rpc_->alloc_msg_buffer_or_die(FLAGS_resp_size);
+  resp_msgbuf = c->rpc_->alloc_msg_buffer_or_die(FLAGS_resp_size+32);
 
   // Touch the response
   if (kAppServerMemsetResp) {
@@ -69,7 +77,10 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
 
   c->stat_rx_bytes_tot += FLAGS_req_size;
   c->stat_tx_bytes_tot += FLAGS_resp_size;
-
+  // 序列化
+  Hello::Resp resp;
+  resp.set_data(resp_msgbuf.buf_,FLAGS_resp_size);
+  c->rpc_->resize_msg_buffer(&resp_msgbuf, FLAGS_resp_size);
   c->rpc_->enqueue_response(req_handle, &resp_msgbuf);
 }
 
@@ -81,25 +92,27 @@ void app_cont_func(void *_context, void *_tag) {
   if (kAppVerbose) {
     printf("large_rpc_tput: Received response for msgbuf %zu.\n", msgbuf_idx);
   }
-
+  // 反序列化
+  Hello::Resp resp;
+  resp.ParseFromArray(resp_msgbuf.buf_, FLAGS_resp_size);
   // Measure latency. 1 us granularity is sufficient for large RPC latency.
   double usec = erpc::to_usec(erpc::rdtsc() - c->req_ts[msgbuf_idx],
                               c->rpc_->get_freq_ghz());
   c->lat_vec.push_back(usec);
 
   // Check the response
-  erpc::rt_assert(resp_msgbuf.get_data_size() == FLAGS_resp_size,
+  erpc::rt_assert(resp.data().size() == FLAGS_resp_size,
                   "Invalid response size");
 
   if (kAppClientCheckResp) {
     bool match = true;
     // Check all response cachelines (checking every byte is slow)
     for (size_t i = 0; i < FLAGS_resp_size; i += 64) {
-      if (resp_msgbuf.buf_[i] != kAppDataByte) match = false;
+      if (resp.data().at(i)!= kAppDataByte) match = false;
     }
     erpc::rt_assert(match, "Invalid resp data");
   } else {
-    erpc::rt_assert(resp_msgbuf.buf_[0] == kAppDataByte, "Invalid resp data");
+    erpc::rt_assert(resp.data().at(0) == kAppDataByte, "Invalid resp data");
   }
 
   c->stat_rx_bytes_tot += FLAGS_resp_size;
