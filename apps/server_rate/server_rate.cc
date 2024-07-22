@@ -101,13 +101,15 @@ void create_sessions(ClientContext &c) {
            FLAGS_num_server_threads, server_uri.c_str());
   }
 
-  for (size_t i = 0; i < FLAGS_num_server_threads; i++) {
-    int session_num = c.rpc_->create_session(server_uri, i);
-    erpc::rt_assert(session_num >= 0, "Failed to create session");
+  // for (size_t i = 0; i < FLAGS_num_server_threads; i++) {
+  //   int session_num = c.rpc_->create_session(server_uri, i);
+  //   erpc::rt_assert(session_num >= 0, "Failed to create session");
+  //   c.session_num_vec_.push_back(session_num);
+  // }
+  int session_num = c.rpc_->create_session(server_uri, c.thread_id);
+      erpc::rt_assert(session_num >= 0, "Failed to create session");
     c.session_num_vec_.push_back(session_num);
-  }
-
-  while (c.num_sm_resps_ != FLAGS_num_server_threads) {
+  while (c.num_sm_resps_ != 1) {
     c.rpc_->run_event_loop(kAppEvLoopMs);
     if (unlikely(ctrl_c_pressed == 1)) return;
   }
