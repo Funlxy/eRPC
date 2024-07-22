@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "util/logger.h"
 #ifdef ERPC_INFINIBAND
 
@@ -29,6 +30,7 @@ void IBTransport::tx_burst(const tx_burst_item_t* tx_burst_arr,
     if (item.pkt_idx_ == 0) {
       // This is the first packet, so we need only 1 SGE. This can be CR/RFR.
       const pkthdr_t* pkthdr = msg_buffer->get_pkthdr_0();
+      printf("in tx_burst, req num = %d\n",pkthdr->req_num_);
       sgl[0].addr = reinterpret_cast<uint64_t>(pkthdr);
       sgl[0].length = msg_buffer->get_pkt_size<kMaxDataPerPkt>(0);
       sgl[0].lkey = msg_buffer->buffer_.lkey_;

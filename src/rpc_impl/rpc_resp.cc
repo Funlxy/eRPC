@@ -1,3 +1,4 @@
+#include <cstdio>
 #include "rpc.h"
 
 namespace erpc {
@@ -45,7 +46,7 @@ void Rpc<TTr>::enqueue_response(ReqHandle *req_handle, MsgBuffer *resp_msgbuf) {
   resp_pkthdr_0->pkt_type_ = PktType::kResp;
   resp_pkthdr_0->pkt_num_ = sslot->server_info_.sav_num_req_pkts_ - 1;
   resp_pkthdr_0->req_num_ = sslot->cur_req_num_;
-
+  printf("sslot->req_num=%d\n",sslot->cur_req_num_);
   // Fill in non-zeroth packet headers, if any
   if (resp_msgbuf->num_pkts_ > 1) {
     // Headers for non-zeroth packets are created by copying the 0th header, and
