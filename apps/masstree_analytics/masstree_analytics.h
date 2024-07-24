@@ -114,7 +114,7 @@ struct app_stats_t {
   app_stats_t() { memset(this, 0, sizeof(app_stats_t)); }
 
   static std::string get_template_str() {
-    return "mrps lat_us_50 lat_us_90 lat_us_99";
+    return "mrps lat_us_50 lat_us_90 lat_us_99 range_us_99";
   }
 
   std::string to_string() {
