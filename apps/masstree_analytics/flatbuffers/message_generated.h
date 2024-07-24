@@ -18,24 +18,30 @@ namespace masstree {
 struct Req;
 struct ReqBuilder;
 
+struct Range_req;
+struct Range_reqBuilder;
+
+struct Update_req;
+struct Update_reqBuilder;
+
 struct Resp;
 struct RespBuilder;
 
 struct Req FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ReqBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ID = 4,
+    VT_REQ_TYPE = 4,
     VT_KEY = 6
   };
-  uint32_t id() const {
-    return GetField<uint32_t>(VT_ID, 0);
+  uint32_t req_type() const {
+    return GetField<uint32_t>(VT_REQ_TYPE, 0);
   }
   const flatbuffers::String *key() const {
     return GetPointer<const flatbuffers::String *>(VT_KEY);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_REQ_TYPE, 4) &&
            VerifyOffset(verifier, VT_KEY) &&
            verifier.VerifyString(key()) &&
            verifier.EndTable();
@@ -46,8 +52,8 @@ struct ReqBuilder {
   typedef Req Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_id(uint32_t id) {
-    fbb_.AddElement<uint32_t>(Req::VT_ID, id, 0);
+  void add_req_type(uint32_t req_type) {
+    fbb_.AddElement<uint32_t>(Req::VT_REQ_TYPE, req_type, 0);
   }
   void add_key(flatbuffers::Offset<flatbuffers::String> key) {
     fbb_.AddOffset(Req::VT_KEY, key);
@@ -65,40 +71,202 @@ struct ReqBuilder {
 
 inline flatbuffers::Offset<Req> CreateReq(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t id = 0,
+    uint32_t req_type = 0,
     flatbuffers::Offset<flatbuffers::String> key = 0) {
   ReqBuilder builder_(_fbb);
   builder_.add_key(key);
-  builder_.add_id(id);
+  builder_.add_req_type(req_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Req> CreateReqDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t id = 0,
+    uint32_t req_type = 0,
     const char *key = nullptr) {
   auto key__ = key ? _fbb.CreateString(key) : 0;
   return masstree::CreateReq(
       _fbb,
-      id,
+      req_type,
       key__);
 }
 
-struct Resp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RespBuilder Builder;
+struct Range_req FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Range_reqBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_ID = 4,
-    VT_VALUE = 6
+    VT_REQ_TYPE = 4,
+    VT_RANGE = 6,
+    VT_KEY = 8
   };
-  uint32_t id() const {
-    return GetField<uint32_t>(VT_ID, 0);
+  uint32_t req_type() const {
+    return GetField<uint32_t>(VT_REQ_TYPE, 0);
+  }
+  uint32_t range() const {
+    return GetField<uint32_t>(VT_RANGE, 0);
+  }
+  const flatbuffers::String *key() const {
+    return GetPointer<const flatbuffers::String *>(VT_KEY);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_REQ_TYPE, 4) &&
+           VerifyField<uint32_t>(verifier, VT_RANGE, 4) &&
+           VerifyOffset(verifier, VT_KEY) &&
+           verifier.VerifyString(key()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Range_reqBuilder {
+  typedef Range_req Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_req_type(uint32_t req_type) {
+    fbb_.AddElement<uint32_t>(Range_req::VT_REQ_TYPE, req_type, 0);
+  }
+  void add_range(uint32_t range) {
+    fbb_.AddElement<uint32_t>(Range_req::VT_RANGE, range, 0);
+  }
+  void add_key(flatbuffers::Offset<flatbuffers::String> key) {
+    fbb_.AddOffset(Range_req::VT_KEY, key);
+  }
+  explicit Range_reqBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Range_req> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Range_req>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Range_req> CreateRange_req(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t req_type = 0,
+    uint32_t range = 0,
+    flatbuffers::Offset<flatbuffers::String> key = 0) {
+  Range_reqBuilder builder_(_fbb);
+  builder_.add_key(key);
+  builder_.add_range(range);
+  builder_.add_req_type(req_type);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Range_req> CreateRange_reqDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t req_type = 0,
+    uint32_t range = 0,
+    const char *key = nullptr) {
+  auto key__ = key ? _fbb.CreateString(key) : 0;
+  return masstree::CreateRange_req(
+      _fbb,
+      req_type,
+      range,
+      key__);
+}
+
+struct Update_req FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef Update_reqBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REQ_TYPE = 4,
+    VT_KEY = 6,
+    VT_VALUE = 8
+  };
+  uint32_t req_type() const {
+    return GetField<uint32_t>(VT_REQ_TYPE, 0);
+  }
+  const flatbuffers::String *key() const {
+    return GetPointer<const flatbuffers::String *>(VT_KEY);
   }
   const flatbuffers::String *value() const {
     return GetPointer<const flatbuffers::String *>(VT_VALUE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_REQ_TYPE, 4) &&
+           VerifyOffset(verifier, VT_KEY) &&
+           verifier.VerifyString(key()) &&
+           VerifyOffset(verifier, VT_VALUE) &&
+           verifier.VerifyString(value()) &&
+           verifier.EndTable();
+  }
+};
+
+struct Update_reqBuilder {
+  typedef Update_req Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_req_type(uint32_t req_type) {
+    fbb_.AddElement<uint32_t>(Update_req::VT_REQ_TYPE, req_type, 0);
+  }
+  void add_key(flatbuffers::Offset<flatbuffers::String> key) {
+    fbb_.AddOffset(Update_req::VT_KEY, key);
+  }
+  void add_value(flatbuffers::Offset<flatbuffers::String> value) {
+    fbb_.AddOffset(Update_req::VT_VALUE, value);
+  }
+  explicit Update_reqBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Update_req> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Update_req>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Update_req> CreateUpdate_req(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t req_type = 0,
+    flatbuffers::Offset<flatbuffers::String> key = 0,
+    flatbuffers::Offset<flatbuffers::String> value = 0) {
+  Update_reqBuilder builder_(_fbb);
+  builder_.add_value(value);
+  builder_.add_key(key);
+  builder_.add_req_type(req_type);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<Update_req> CreateUpdate_reqDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t req_type = 0,
+    const char *key = nullptr,
+    const char *value = nullptr) {
+  auto key__ = key ? _fbb.CreateString(key) : 0;
+  auto value__ = value ? _fbb.CreateString(value) : 0;
+  return masstree::CreateUpdate_req(
+      _fbb,
+      req_type,
+      key__,
+      value__);
+}
+
+struct Resp FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef RespBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REQ_TYPE = 4,
+    VT_COUNT = 6,
+    VT_SUCCESS = 8,
+    VT_VALUE = 10
+  };
+  uint32_t req_type() const {
+    return GetField<uint32_t>(VT_REQ_TYPE, 0);
+  }
+  uint32_t count() const {
+    return GetField<uint32_t>(VT_COUNT, 0);
+  }
+  uint32_t success() const {
+    return GetField<uint32_t>(VT_SUCCESS, 0);
+  }
+  const flatbuffers::String *value() const {
+    return GetPointer<const flatbuffers::String *>(VT_VALUE);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_REQ_TYPE, 4) &&
+           VerifyField<uint32_t>(verifier, VT_COUNT, 4) &&
+           VerifyField<uint32_t>(verifier, VT_SUCCESS, 4) &&
            VerifyOffset(verifier, VT_VALUE) &&
            verifier.VerifyString(value()) &&
            verifier.EndTable();
@@ -109,8 +277,14 @@ struct RespBuilder {
   typedef Resp Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_id(uint32_t id) {
-    fbb_.AddElement<uint32_t>(Resp::VT_ID, id, 0);
+  void add_req_type(uint32_t req_type) {
+    fbb_.AddElement<uint32_t>(Resp::VT_REQ_TYPE, req_type, 0);
+  }
+  void add_count(uint32_t count) {
+    fbb_.AddElement<uint32_t>(Resp::VT_COUNT, count, 0);
+  }
+  void add_success(uint32_t success) {
+    fbb_.AddElement<uint32_t>(Resp::VT_SUCCESS, success, 0);
   }
   void add_value(flatbuffers::Offset<flatbuffers::String> value) {
     fbb_.AddOffset(Resp::VT_VALUE, value);
@@ -128,22 +302,30 @@ struct RespBuilder {
 
 inline flatbuffers::Offset<Resp> CreateResp(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t id = 0,
+    uint32_t req_type = 0,
+    uint32_t count = 0,
+    uint32_t success = 0,
     flatbuffers::Offset<flatbuffers::String> value = 0) {
   RespBuilder builder_(_fbb);
   builder_.add_value(value);
-  builder_.add_id(id);
+  builder_.add_success(success);
+  builder_.add_count(count);
+  builder_.add_req_type(req_type);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<Resp> CreateRespDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t id = 0,
+    uint32_t req_type = 0,
+    uint32_t count = 0,
+    uint32_t success = 0,
     const char *value = nullptr) {
   auto value__ = value ? _fbb.CreateString(value) : 0;
   return masstree::CreateResp(
       _fbb,
-      id,
+      req_type,
+      count,
+      success,
       value__);
 }
 

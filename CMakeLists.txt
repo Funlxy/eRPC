@@ -256,8 +256,7 @@ elseif(APP STREQUAL "masstree_analytics")
   add_definitions(-include ${CMAKE_SOURCE_DIR}/third_party/masstree-beta/config.h)
   set(APP_ADDITIONAL_SOURCES
     apps/masstree_analytics/mt_index_api.cc
-    mica/src/mica/util/cityhash/city_mod.cc
-    apps/masstree_analytics/protobuf/message.pb.cc)
+    mica/src/mica/util/cityhash/city_mod.cc)
   set(LIBRARIES ${LIBRARIES} masstree protobuf::libprotobuf)
   include_directories(mica/src)
 elseif(APP STREQUAL "mica_test")

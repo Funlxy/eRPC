@@ -1,11 +1,22 @@
 namespace masstree;
 
 table Req {
-    id:uint32;
-    key:string;
+  req_type:uint32;
+  key:string;
 }
-
+table Range_req{
+  req_type:uint32;
+  range:uint32;
+  key:string;
+}
+table Update_req{
+  req_type:uint32;
+  key:string;
+  value:string;
+}
 table Resp{
-    id:uint32;
-    value:string;
+  req_type:uint32;
+  count:uint32;
+  success:uint32;
+  value:string;
 }
