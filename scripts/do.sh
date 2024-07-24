@@ -25,8 +25,6 @@ fi
 
 epid=$1
 numa_node=$2
-set -x
-
 # Non-GDB mode
 if [ "$#" -eq 2 ]; then
   blue "do.sh: Launching process $epid on NUMA node $numa_node"

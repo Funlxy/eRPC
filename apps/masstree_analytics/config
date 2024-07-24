@@ -10,5 +10,5 @@
 --range_req_percent 0
 --numa_0_ports 0
 --numa_1_ports 1,3
---load_path ../../ycsb_workload/data/trace_e_load.txt
---run_path ../../ycsb_workload/data/trace_e_run.txt
+--load_path ../../ycsb_workload/data/trace_c_load_16k.txt
+--run_path ../../ycsb_workload/data/trace_c_run_16k.txt

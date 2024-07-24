@@ -23,7 +23,7 @@ class MtIndex {
   static constexpr size_t kKeySize = 32;  /// Index key size in bytes
   static_assert(sizeof(MtIndex::kKeySize) % sizeof(uint64_t) == 0, "");
 
-  static constexpr size_t kValueSize = 1024;  /// Index value size in bytes
+  static constexpr size_t kValueSize = 16384;  /// Index value size in bytes
   static_assert(sizeof(MtIndex::kValueSize) % sizeof(uint32_t) == 0, "");
 
   MtIndex() {}
