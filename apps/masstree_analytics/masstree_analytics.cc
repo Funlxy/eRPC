@@ -190,24 +190,35 @@ int load_workload(const std::string& path,std::vector<std::pair<std::string,std:
   buffer << infile.rdbuf();
   std::string content = buffer.str();
   infile.close();
-
   // 按行分割文件内容
   std::istringstream contentStream(content);
   std::string line;
   const std::string prefix = "INSERT usertable ";
   std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
   while (std::getline(contentStream, line)) {
-      // 检查行是否以指定的前缀开始和以指定的后缀结束
-      if (line.compare(0, prefix.length(), prefix) == 0) {
-          // 提取中间的部分
-        std::smatch match;
-        if (std::regex_search(line, match, pattern) && match.size() > 2) {
-            std::string key = match.str(1);
-            std::string value = match.str(2);
-            value.pop_back();
-            data.emplace_back(key,value);
-        }
+      int pos = line.find(',');
+      auto key = line.substr(0,pos);
+      auto value = line.substr(pos+1);
+      if(value.size()!=MtIndex::kValueSize){
+        printf("%d\n",value.size());
+        std::cout << "error size\n";
+        exit(-1);
       }
+      data.emplace_back(key,value);
+      // // 检查行是否以指定的前缀开始和以指定的后缀结束
+      // if (line.compare(0, prefix.length(), prefix) == 0) {
+      //   std::cout << "here4\n";
+
+      //     // 提取中间的部分
+      //   std::smatch match;
+      //   if (std::regex_search(line, match, pattern) && match.size() > 2) {
+      //       std::cout << "here5\n";
+
+      //       std::string key = match.str(1);
+      //       std::string value = match.str(2);
+      //       value.pop_back();
+      //   }
+      // }
   }
 
   printf("work load cnts: %zu\n",data.size());
@@ -444,7 +455,6 @@ void app_cont_func(void *_context, void *_msgbuf_idx) {
   if (kAppVerbose) {
     printf("main: Received response for msgbuf %zu.\n", msgbuf_idx);
   }
-
   const auto &resp_msgbuf = c->client.window_[msgbuf_idx].resp_msgbuf_;
   // std::cout << resp_msgbuf.get_data_size() << std::endl;
   // deserialize
