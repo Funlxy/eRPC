@@ -13,12 +13,14 @@
 
 static constexpr size_t kAppPointReqType = 1;
 static constexpr size_t kAppRangeReqType = 2;
+static constexpr size_t kAppUpdateReqType = 3;
+static constexpr size_t kAppInsertReqType = 4;
 static constexpr size_t kAppEvLoopMs = 500;
 
 // Workload params
 static constexpr bool kBypassMasstree = false;  // Bypass Masstree?
 static constexpr size_t kAppMaxReqWindow = 16;  // Max pending reqs per clientstatic constexpr bool kBypassMasstree = false;  // Bypass Masstree?
-static constexpr size_t kMaxDataSize = 72;
+static constexpr size_t kMaxDataSize = 1500;
 
 
 // Globals
@@ -35,7 +37,9 @@ DEFINE_uint64(req_window, 0, "Outstanding requests per client thread");
 DEFINE_uint64(num_keys, 0, "Number of keys in the server's Masstree");
 DEFINE_uint64(range_size, 0, "Size of range to scan");
 DEFINE_uint64(range_req_percent, 0, "Percentage of range scans");
-
+// load path
+DEFINE_string(load_path, "123", "server load path");
+DEFINE_string(run_path, "123", "client workload path");
 // Return true iff this machine is the one server
 bool is_server() { return FLAGS_process_id == 0; }
 
@@ -104,6 +108,7 @@ struct app_stats_t {
   double lat_us_50;  // Point request median latency
   double lat_us_90;  // Point request 90th percentile latency
   double lat_us_99;  // Point request 99th percentile latency
+  double range_us_99;
   size_t pad[4];
 
   app_stats_t() { memset(this, 0, sizeof(app_stats_t)); }
@@ -114,7 +119,7 @@ struct app_stats_t {
 
   std::string to_string() {
     return std::to_string(mrps) + " " + std::to_string(lat_us_50) + " " +
-           std::to_string(lat_us_90) + " " + std::to_string(lat_us_99);
+           std::to_string(lat_us_90) + " " + std::to_string(lat_us_99) + " " + std::to_string(range_us_99);
   }
 
   /// Accumulate stats
@@ -123,10 +128,11 @@ struct app_stats_t {
     this->lat_us_50 += rhs.lat_us_50;
     this->lat_us_90 += rhs.lat_us_90;
     this->lat_us_99 += rhs.lat_us_99;
+    this->range_us_99 += rhs.range_us_99;
     return *this;
   }
 };
-static_assert(sizeof(app_stats_t) == 64, "");
+static_assert(sizeof(app_stats_t) == 72, "");
 
 // Per-thread application context
 class AppContext : public BasicAppContext {

@@ -51,18 +51,28 @@ struct TableStruct_message_2eproto {
 extern const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable
     descriptor_table_message_2eproto;
 namespace masstree {
+class Range_req;
+struct Range_reqDefaultTypeInternal;
+extern Range_reqDefaultTypeInternal _Range_req_default_instance_;
 class Req;
 struct ReqDefaultTypeInternal;
 extern ReqDefaultTypeInternal _Req_default_instance_;
 class Resp;
 struct RespDefaultTypeInternal;
 extern RespDefaultTypeInternal _Resp_default_instance_;
+class Update_req;
+struct Update_reqDefaultTypeInternal;
+extern Update_reqDefaultTypeInternal _Update_req_default_instance_;
 }  // namespace masstree
 PROTOBUF_NAMESPACE_OPEN
+template <>
+::masstree::Range_req* Arena::CreateMaybeMessage<::masstree::Range_req>(Arena*);
 template <>
 ::masstree::Req* Arena::CreateMaybeMessage<::masstree::Req>(Arena*);
 template <>
 ::masstree::Resp* Arena::CreateMaybeMessage<::masstree::Resp>(Arena*);
+template <>
+::masstree::Update_req* Arena::CreateMaybeMessage<::masstree::Update_req>(Arena*);
 PROTOBUF_NAMESPACE_CLOSE
 
 namespace masstree {
@@ -201,7 +211,7 @@ class Req final :
 
   enum : int {
     kKeyFieldNumber = 2,
-    kIdFieldNumber = 1,
+    kReqTypeFieldNumber = 1,
   };
   // bytes key = 2;
   void clear_key() ;
@@ -223,14 +233,14 @@ class Req final :
   std::string* _internal_mutable_key();
 
   public:
-  // int32 id = 1;
-  void clear_id() ;
-  ::int32_t id() const;
-  void set_id(::int32_t value);
+  // uint32 req_type = 1;
+  void clear_req_type() ;
+  ::uint32_t req_type() const;
+  void set_req_type(::uint32_t value);
 
   private:
-  ::int32_t _internal_id() const;
-  void _internal_set_id(::int32_t value);
+  ::uint32_t _internal_req_type() const;
+  void _internal_set_req_type(::uint32_t value);
 
   public:
   // @@protoc_insertion_point(class_scope:masstree.Req)
@@ -242,7 +252,395 @@ class Req final :
   typedef void DestructorSkippable_;
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr key_;
-    ::int32_t id_;
+    ::uint32_t req_type_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_message_2eproto;
+};// -------------------------------------------------------------------
+
+class Range_req final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:masstree.Range_req) */ {
+ public:
+  inline Range_req() : Range_req(nullptr) {}
+  ~Range_req() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR Range_req(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  Range_req(const Range_req& from);
+  Range_req(Range_req&& from) noexcept
+    : Range_req() {
+    *this = ::std::move(from);
+  }
+
+  inline Range_req& operator=(const Range_req& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Range_req& operator=(Range_req&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet& unknown_fields() const {
+    return _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance);
+  }
+  inline ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet* mutable_unknown_fields() {
+    return _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Range_req& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Range_req* internal_default_instance() {
+    return reinterpret_cast<const Range_req*>(
+               &_Range_req_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    1;
+
+  friend void swap(Range_req& a, Range_req& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Range_req* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Range_req* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Range_req* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Range_req>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const Range_req& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const Range_req& from) {
+    Range_req::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(Range_req* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "masstree.Range_req";
+  }
+  protected:
+  explicit Range_req(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kKeyFieldNumber = 3,
+    kReqTypeFieldNumber = 1,
+    kRangeFieldNumber = 2,
+  };
+  // bytes key = 3;
+  void clear_key() ;
+  const std::string& key() const;
+
+
+
+
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_key(Arg_&& arg, Args_... args);
+  std::string* mutable_key();
+  PROTOBUF_NODISCARD std::string* release_key();
+  void set_allocated_key(std::string* ptr);
+
+  private:
+  const std::string& _internal_key() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_key(
+      const std::string& value);
+  std::string* _internal_mutable_key();
+
+  public:
+  // uint32 req_type = 1;
+  void clear_req_type() ;
+  ::uint32_t req_type() const;
+  void set_req_type(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_req_type() const;
+  void _internal_set_req_type(::uint32_t value);
+
+  public:
+  // uint32 range = 2;
+  void clear_range() ;
+  ::uint32_t range() const;
+  void set_range(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_range() const;
+  void _internal_set_range(::uint32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:masstree.Range_req)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr key_;
+    ::uint32_t req_type_;
+    ::uint32_t range_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_message_2eproto;
+};// -------------------------------------------------------------------
+
+class Update_req final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:masstree.Update_req) */ {
+ public:
+  inline Update_req() : Update_req(nullptr) {}
+  ~Update_req() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR Update_req(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  Update_req(const Update_req& from);
+  Update_req(Update_req&& from) noexcept
+    : Update_req() {
+    *this = ::std::move(from);
+  }
+
+  inline Update_req& operator=(const Update_req& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline Update_req& operator=(Update_req&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet& unknown_fields() const {
+    return _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance);
+  }
+  inline ::PROTOBUF_NAMESPACE_ID::UnknownFieldSet* mutable_unknown_fields() {
+    return _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const Update_req& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const Update_req* internal_default_instance() {
+    return reinterpret_cast<const Update_req*>(
+               &_Update_req_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    2;
+
+  friend void swap(Update_req& a, Update_req& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(Update_req* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(Update_req* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  Update_req* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<Update_req>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const Update_req& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const Update_req& from) {
+    Update_req::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(Update_req* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "masstree.Update_req";
+  }
+  protected:
+  explicit Update_req(::PROTOBUF_NAMESPACE_ID::Arena* arena);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kKeyFieldNumber = 2,
+    kValueFieldNumber = 3,
+    kReqTypeFieldNumber = 1,
+  };
+  // bytes key = 2;
+  void clear_key() ;
+  const std::string& key() const;
+
+
+
+
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_key(Arg_&& arg, Args_... args);
+  std::string* mutable_key();
+  PROTOBUF_NODISCARD std::string* release_key();
+  void set_allocated_key(std::string* ptr);
+
+  private:
+  const std::string& _internal_key() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_key(
+      const std::string& value);
+  std::string* _internal_mutable_key();
+
+  public:
+  // bytes value = 3;
+  void clear_value() ;
+  const std::string& value() const;
+
+
+
+
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_value(Arg_&& arg, Args_... args);
+  std::string* mutable_value();
+  PROTOBUF_NODISCARD std::string* release_value();
+  void set_allocated_value(std::string* ptr);
+
+  private:
+  const std::string& _internal_value() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_value(
+      const std::string& value);
+  std::string* _internal_mutable_value();
+
+  public:
+  // uint32 req_type = 1;
+  void clear_req_type() ;
+  ::uint32_t req_type() const;
+  void set_req_type(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_req_type() const;
+  void _internal_set_req_type(::uint32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:masstree.Update_req)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr key_;
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr value_;
+    ::uint32_t req_type_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -305,7 +703,7 @@ class Resp final :
                &_Resp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    1;
+    3;
 
   friend void swap(Resp& a, Resp& b) {
     a.Swap(&b);
@@ -377,10 +775,12 @@ class Resp final :
   // accessors -------------------------------------------------------
 
   enum : int {
-    kValueFieldNumber = 2,
-    kIdFieldNumber = 1,
+    kValueFieldNumber = 4,
+    kReqTypeFieldNumber = 1,
+    kCountFieldNumber = 2,
+    kSuccessFieldNumber = 3,
   };
-  // bytes value = 2;
+  // bytes value = 4;
   void clear_value() ;
   const std::string& value() const;
 
@@ -400,14 +800,34 @@ class Resp final :
   std::string* _internal_mutable_value();
 
   public:
-  // int32 id = 1;
-  void clear_id() ;
-  ::int32_t id() const;
-  void set_id(::int32_t value);
+  // uint32 req_type = 1;
+  void clear_req_type() ;
+  ::uint32_t req_type() const;
+  void set_req_type(::uint32_t value);
 
   private:
-  ::int32_t _internal_id() const;
-  void _internal_set_id(::int32_t value);
+  ::uint32_t _internal_req_type() const;
+  void _internal_set_req_type(::uint32_t value);
+
+  public:
+  // uint32 count = 2;
+  void clear_count() ;
+  ::uint32_t count() const;
+  void set_count(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_count() const;
+  void _internal_set_count(::uint32_t value);
+
+  public:
+  // uint32 success = 3;
+  void clear_success() ;
+  ::uint32_t success() const;
+  void set_success(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_success() const;
+  void _internal_set_success(::uint32_t value);
 
   public:
   // @@protoc_insertion_point(class_scope:masstree.Resp)
@@ -419,7 +839,9 @@ class Resp final :
   typedef void DestructorSkippable_;
   struct Impl_ {
     ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr value_;
-    ::int32_t id_;
+    ::uint32_t req_type_;
+    ::uint32_t count_;
+    ::uint32_t success_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -442,24 +864,24 @@ class Resp final :
 
 // Req
 
-// int32 id = 1;
-inline void Req::clear_id() {
-  _impl_.id_ = 0;
+// uint32 req_type = 1;
+inline void Req::clear_req_type() {
+  _impl_.req_type_ = 0u;
 }
-inline ::int32_t Req::id() const {
-  // @@protoc_insertion_point(field_get:masstree.Req.id)
-  return _internal_id();
+inline ::uint32_t Req::req_type() const {
+  // @@protoc_insertion_point(field_get:masstree.Req.req_type)
+  return _internal_req_type();
 }
-inline void Req::set_id(::int32_t value) {
-  _internal_set_id(value);
-  // @@protoc_insertion_point(field_set:masstree.Req.id)
+inline void Req::set_req_type(::uint32_t value) {
+  _internal_set_req_type(value);
+  // @@protoc_insertion_point(field_set:masstree.Req.req_type)
 }
-inline ::int32_t Req::_internal_id() const {
-  return _impl_.id_;
+inline ::uint32_t Req::_internal_req_type() const {
+  return _impl_.req_type_;
 }
-inline void Req::_internal_set_id(::int32_t value) {
+inline void Req::_internal_set_req_type(::uint32_t value) {
   ;
-  _impl_.id_ = value;
+  _impl_.req_type_ = value;
 }
 
 // bytes key = 2;
@@ -511,29 +933,278 @@ inline void Req::set_allocated_key(std::string* value) {
 
 // -------------------------------------------------------------------
 
+// Range_req
+
+// uint32 req_type = 1;
+inline void Range_req::clear_req_type() {
+  _impl_.req_type_ = 0u;
+}
+inline ::uint32_t Range_req::req_type() const {
+  // @@protoc_insertion_point(field_get:masstree.Range_req.req_type)
+  return _internal_req_type();
+}
+inline void Range_req::set_req_type(::uint32_t value) {
+  _internal_set_req_type(value);
+  // @@protoc_insertion_point(field_set:masstree.Range_req.req_type)
+}
+inline ::uint32_t Range_req::_internal_req_type() const {
+  return _impl_.req_type_;
+}
+inline void Range_req::_internal_set_req_type(::uint32_t value) {
+  ;
+  _impl_.req_type_ = value;
+}
+
+// uint32 range = 2;
+inline void Range_req::clear_range() {
+  _impl_.range_ = 0u;
+}
+inline ::uint32_t Range_req::range() const {
+  // @@protoc_insertion_point(field_get:masstree.Range_req.range)
+  return _internal_range();
+}
+inline void Range_req::set_range(::uint32_t value) {
+  _internal_set_range(value);
+  // @@protoc_insertion_point(field_set:masstree.Range_req.range)
+}
+inline ::uint32_t Range_req::_internal_range() const {
+  return _impl_.range_;
+}
+inline void Range_req::_internal_set_range(::uint32_t value) {
+  ;
+  _impl_.range_ = value;
+}
+
+// bytes key = 3;
+inline void Range_req::clear_key() {
+  _impl_.key_.ClearToEmpty();
+}
+inline const std::string& Range_req::key() const {
+  // @@protoc_insertion_point(field_get:masstree.Range_req.key)
+  return _internal_key();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Range_req::set_key(Arg_&& arg,
+                                                     Args_... args) {
+  ;
+  _impl_.key_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:masstree.Range_req.key)
+}
+inline std::string* Range_req::mutable_key() {
+  std::string* _s = _internal_mutable_key();
+  // @@protoc_insertion_point(field_mutable:masstree.Range_req.key)
+  return _s;
+}
+inline const std::string& Range_req::_internal_key() const {
+  return _impl_.key_.Get();
+}
+inline void Range_req::_internal_set_key(const std::string& value) {
+  ;
+
+
+  _impl_.key_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Range_req::_internal_mutable_key() {
+  ;
+  return _impl_.key_.Mutable( GetArenaForAllocation());
+}
+inline std::string* Range_req::release_key() {
+  // @@protoc_insertion_point(field_release:masstree.Range_req.key)
+  return _impl_.key_.Release();
+}
+inline void Range_req::set_allocated_key(std::string* value) {
+  _impl_.key_.SetAllocated(value, GetArenaForAllocation());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.key_.IsDefault()) {
+          _impl_.key_.Set("", GetArenaForAllocation());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:masstree.Range_req.key)
+}
+
+// -------------------------------------------------------------------
+
+// Update_req
+
+// uint32 req_type = 1;
+inline void Update_req::clear_req_type() {
+  _impl_.req_type_ = 0u;
+}
+inline ::uint32_t Update_req::req_type() const {
+  // @@protoc_insertion_point(field_get:masstree.Update_req.req_type)
+  return _internal_req_type();
+}
+inline void Update_req::set_req_type(::uint32_t value) {
+  _internal_set_req_type(value);
+  // @@protoc_insertion_point(field_set:masstree.Update_req.req_type)
+}
+inline ::uint32_t Update_req::_internal_req_type() const {
+  return _impl_.req_type_;
+}
+inline void Update_req::_internal_set_req_type(::uint32_t value) {
+  ;
+  _impl_.req_type_ = value;
+}
+
+// bytes key = 2;
+inline void Update_req::clear_key() {
+  _impl_.key_.ClearToEmpty();
+}
+inline const std::string& Update_req::key() const {
+  // @@protoc_insertion_point(field_get:masstree.Update_req.key)
+  return _internal_key();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Update_req::set_key(Arg_&& arg,
+                                                     Args_... args) {
+  ;
+  _impl_.key_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:masstree.Update_req.key)
+}
+inline std::string* Update_req::mutable_key() {
+  std::string* _s = _internal_mutable_key();
+  // @@protoc_insertion_point(field_mutable:masstree.Update_req.key)
+  return _s;
+}
+inline const std::string& Update_req::_internal_key() const {
+  return _impl_.key_.Get();
+}
+inline void Update_req::_internal_set_key(const std::string& value) {
+  ;
+
+
+  _impl_.key_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Update_req::_internal_mutable_key() {
+  ;
+  return _impl_.key_.Mutable( GetArenaForAllocation());
+}
+inline std::string* Update_req::release_key() {
+  // @@protoc_insertion_point(field_release:masstree.Update_req.key)
+  return _impl_.key_.Release();
+}
+inline void Update_req::set_allocated_key(std::string* value) {
+  _impl_.key_.SetAllocated(value, GetArenaForAllocation());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.key_.IsDefault()) {
+          _impl_.key_.Set("", GetArenaForAllocation());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:masstree.Update_req.key)
+}
+
+// bytes value = 3;
+inline void Update_req::clear_value() {
+  _impl_.value_.ClearToEmpty();
+}
+inline const std::string& Update_req::value() const {
+  // @@protoc_insertion_point(field_get:masstree.Update_req.value)
+  return _internal_value();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Update_req::set_value(Arg_&& arg,
+                                                     Args_... args) {
+  ;
+  _impl_.value_.SetBytes(static_cast<Arg_&&>(arg), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:masstree.Update_req.value)
+}
+inline std::string* Update_req::mutable_value() {
+  std::string* _s = _internal_mutable_value();
+  // @@protoc_insertion_point(field_mutable:masstree.Update_req.value)
+  return _s;
+}
+inline const std::string& Update_req::_internal_value() const {
+  return _impl_.value_.Get();
+}
+inline void Update_req::_internal_set_value(const std::string& value) {
+  ;
+
+
+  _impl_.value_.Set(value, GetArenaForAllocation());
+}
+inline std::string* Update_req::_internal_mutable_value() {
+  ;
+  return _impl_.value_.Mutable( GetArenaForAllocation());
+}
+inline std::string* Update_req::release_value() {
+  // @@protoc_insertion_point(field_release:masstree.Update_req.value)
+  return _impl_.value_.Release();
+}
+inline void Update_req::set_allocated_value(std::string* value) {
+  _impl_.value_.SetAllocated(value, GetArenaForAllocation());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.value_.IsDefault()) {
+          _impl_.value_.Set("", GetArenaForAllocation());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:masstree.Update_req.value)
+}
+
+// -------------------------------------------------------------------
+
 // Resp
 
-// int32 id = 1;
-inline void Resp::clear_id() {
-  _impl_.id_ = 0;
+// uint32 req_type = 1;
+inline void Resp::clear_req_type() {
+  _impl_.req_type_ = 0u;
 }
-inline ::int32_t Resp::id() const {
-  // @@protoc_insertion_point(field_get:masstree.Resp.id)
-  return _internal_id();
+inline ::uint32_t Resp::req_type() const {
+  // @@protoc_insertion_point(field_get:masstree.Resp.req_type)
+  return _internal_req_type();
 }
-inline void Resp::set_id(::int32_t value) {
-  _internal_set_id(value);
-  // @@protoc_insertion_point(field_set:masstree.Resp.id)
+inline void Resp::set_req_type(::uint32_t value) {
+  _internal_set_req_type(value);
+  // @@protoc_insertion_point(field_set:masstree.Resp.req_type)
 }
-inline ::int32_t Resp::_internal_id() const {
-  return _impl_.id_;
+inline ::uint32_t Resp::_internal_req_type() const {
+  return _impl_.req_type_;
 }
-inline void Resp::_internal_set_id(::int32_t value) {
+inline void Resp::_internal_set_req_type(::uint32_t value) {
   ;
-  _impl_.id_ = value;
+  _impl_.req_type_ = value;
 }
 
-// bytes value = 2;
+// uint32 count = 2;
+inline void Resp::clear_count() {
+  _impl_.count_ = 0u;
+}
+inline ::uint32_t Resp::count() const {
+  // @@protoc_insertion_point(field_get:masstree.Resp.count)
+  return _internal_count();
+}
+inline void Resp::set_count(::uint32_t value) {
+  _internal_set_count(value);
+  // @@protoc_insertion_point(field_set:masstree.Resp.count)
+}
+inline ::uint32_t Resp::_internal_count() const {
+  return _impl_.count_;
+}
+inline void Resp::_internal_set_count(::uint32_t value) {
+  ;
+  _impl_.count_ = value;
+}
+
+// uint32 success = 3;
+inline void Resp::clear_success() {
+  _impl_.success_ = 0u;
+}
+inline ::uint32_t Resp::success() const {
+  // @@protoc_insertion_point(field_get:masstree.Resp.success)
+  return _internal_success();
+}
+inline void Resp::set_success(::uint32_t value) {
+  _internal_set_success(value);
+  // @@protoc_insertion_point(field_set:masstree.Resp.success)
+}
+inline ::uint32_t Resp::_internal_success() const {
+  return _impl_.success_;
+}
+inline void Resp::_internal_set_success(::uint32_t value) {
+  ;
+  _impl_.success_ = value;
+}
+
+// bytes value = 4;
 inline void Resp::clear_value() {
   _impl_.value_.ClearToEmpty();
 }

@@ -20,10 +20,10 @@ typedef threadinfo threadinfo_t;
 
 class MtIndex {
  public:
-  static constexpr size_t kKeySize = 16;  /// Index key size in bytes
+  static constexpr size_t kKeySize = 32;  /// Index key size in bytes
   static_assert(sizeof(MtIndex::kKeySize) % sizeof(uint64_t) == 0, "");
 
-  static constexpr size_t kValueSize = 64;  /// Index value size in bytes
+  static constexpr size_t kValueSize = 1024;  /// Index value size in bytes
   static_assert(sizeof(MtIndex::kValueSize) % sizeof(uint32_t) == 0, "");
 
   MtIndex() {}
@@ -99,11 +99,11 @@ class MtIndex {
 
   /// Return the sum of the values (first eight bytes per value) of \p range
   /// keys including and after \p cur_key
-  size_t sum_in_range(uint8_t *cur_key, size_t range, threadinfo_t *ti) {
+  size_t sum_in_range(const char* cur_key, size_t len, size_t range, threadinfo_t *ti) {
     if (range == 0) return 0;
 
-    swap_endian(cur_key);
-    Str cur_key_str(reinterpret_cast<const char *>(&cur_key), sizeof(size_t));
+    // swap_endian(cur_key);
+    Str cur_key_str(cur_key, len);
 
     scanner_t scanner(range);
     table_->table().scan(cur_key_str, true, scanner, *ti);

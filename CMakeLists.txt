@@ -404,8 +404,9 @@ endif()
 # Using link-time optimization sometimes requires building with sources instead
 # of liberpc. See the hello world example's Makefile for an example of
 # compiling with liberpc.
-set(APP_ADDITIONAL_SOURCES
-apps/large_rpc_tput/protobuf/message.pb.cc)
+# set(APP_ADDITIONAL_SOURCES
+# apps/large_rpc_tput/protobuf/message.pb.cc
+# apps/masstree_analytics/protobuf/message.pb.cc)
 add_executable(${APP} apps/${APP}/${APP}.cc ${APP_ADDITIONAL_SOURCES} ${SOURCES} )
 
 if(PERF)

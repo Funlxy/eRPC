@@ -2,11 +2,13 @@
 --num_processes 2
 --num_server_fg_threads 8
 --num_server_bg_threads 0
---num_population_threads 10
+--num_population_threads 32
 --num_client_threads 8
---req_window 8
+--req_window 16
 --num_keys 1000000
 --range_size 128
 --range_req_percent 0
 --numa_0_ports 0
 --numa_1_ports 1,3
+--load_path ../../ycsb_workload/data/trace_c_load.txt
+--run_path ../../ycsb_workload/data/trace_c_run.txt

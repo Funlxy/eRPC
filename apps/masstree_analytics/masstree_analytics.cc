@@ -6,16 +6,102 @@
 #include <string>
 #include <vector>
 #include <regex>
+#include "common.h"
+#include "mt_index_api.h"
 #include "util/autorun_helpers.h"
 #include "protobuf/message.pb.h"
 std::vector<std::vector<std::string>> work_load;
 void app_cont_func(void *, void *);  // Forward declaration
 
 static constexpr bool kAppVerbose = false;
+enum OperationType {
+    INSERT,
+    SCAN,
+    READ,
+    UPDATE,
+    UNKNOWN
+};
+
+// 根据操作类型的字符串返回相应的枚举值
+OperationType getOperationType(const std::string& operation) {
+    if (operation == "INSERT") return INSERT;
+    if (operation == "SCAN") return SCAN;
+    if (operation == "READ") return READ;
+    if (operation == "UPDATE") return UPDATE;
+    return UNKNOWN;
+}
+std::string processInsertOperation(const std::string& line) {
+    // std::cout << line << std::endl;
+    const std::string prefix = "INSERT usertable ";
+    std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
+    if (line.compare(0, prefix.length(), prefix) == 0) {
+        // std::cout << "yes\n";
+          // 提取中间的部分
+        std::smatch match;
+        if (std::regex_search(line, match, pattern) && match.size() > 2) {
+            std::string key = match.str(1);
+            std::string value = match.str(2);
+            value.pop_back();
+            // cur.push_back("1"+key+"+"+value);
+            return "4" + key + "+" + value;
+        }
+    }
+}
+std::string processReadOperation(const std::string& line) {
+    // std::cout << line << std::endl;
+    const std::string prefix = "READ usertable ";
+    const std::string suffix = " [ field0 ]";
+    // 检查行是否以指定的前缀开始和以指定的后缀结束
+    if (line.compare(0, prefix.length(), prefix) == 0 && 
+        line.compare(line.length() - suffix.length(), suffix.length(), suffix) == 0) {
+        // 提取中间的部分
+        std::string user_field = line.substr(prefix.length(), 
+                                              line.length() - prefix.length() - suffix.length());
+        // cur.push_back("2"+user_field);
+        return "1" + user_field;
+    }
+}
+std::string processScanOperation(const std::string& line) {
+    const std::string prefix = "SCAN usertable ";
+    const std::string suffix = " [ field0 ]";
+    
+    // 检查行是否以指定的前缀开始和以指定的后缀结束
+    if (line.compare(0, prefix.length(), prefix) == 0 && 
+        line.compare(line.length() - suffix.length(), suffix.length(), suffix) == 0) {
+        // 提取中间的部分
+        std::string user_field_range = line.substr(prefix.length(), 
+                                                    line.length() - prefix.length() - suffix.length());
+        size_t first_space = user_field_range.find(' ');
+        if (first_space != std::string::npos) {
+            std::string userID = user_field_range.substr(0, first_space);
+            std::string range = user_field_range.substr(first_space + 1);
+            // std::cout<<"YESscan\n";
+            // cur.push_back("3" + userID + "+" + range);
+            return "2" + userID + "+" + range;
+        }
+    }
+}
+std::string processUpdateOperation(const std::string& line) {
+    const std::string prefix = "UPDATE usertable ";
+    std::regex pattern(R"((user\d+) \[ field0=(.+)\])");
+    if (line.compare(0, prefix.length(), prefix) == 0) {
+        // std::cout << "yes\n";
+          // 提取中间的部分
+        std::smatch match;
+        if (std::regex_search(line, match, pattern) && match.size() > 2) {
+            std::string key = match.str(1);
+            std::string value = match.str(2);
+            value.pop_back();
+            // cur.push_back("4"+key+"+"+value);
+            return "3" + key + "+" + value;
+        }
+    }
+}
 int init_workload(std::string path){
+  std::cout << path << std::endl;
   std::ifstream infile(path);
   if (!infile.is_open()) {
-      std::cerr << "cant open file" << std::endl;
+      std::cerr << "cant open file in init" << std::endl;
       return -1;
   }
 
@@ -28,29 +114,67 @@ int init_workload(std::string path){
   // 按行分割文件内容
   std::istringstream contentStream(content);
   std::string line;
-  const std::string prefix = "READ usertable ";
-  const std::string suffix = " [ field0 ]";
   std::vector<std::string> cur; 
   while (std::getline(contentStream, line)) {
-      // 检查行是否以指定的前缀开始和以指定的后缀结束
-      if (line.compare(0, prefix.length(), prefix) == 0 && 
-          line.compare(line.length() - suffix.length(), suffix.length(), suffix) == 0) {
-          // 提取中间的部分
-          std::string user_field = line.substr(prefix.length(), 
-                                                line.length() - prefix.length() - suffix.length());
-          cur.push_back(user_field);
-      }
+        std::string operation = line.substr(0, line.find(' '));
+        OperationType opType = getOperationType(operation);
+        std::string s;
+        switch (opType) {
+            case INSERT:
+                s = processInsertOperation(line);
+                if(s.empty()){
+                  printf("error\n");
+                  exit(-1);
+                }
+                cur.push_back(s);
+                // std::cout << "INSERT\n";
+                break;
+            case SCAN:
+                s = processScanOperation(line);
+                if(s.empty()){
+                  printf("error\n");
+                  exit(-1);
+                }
+                cur.push_back(s);
+                // std::cout << "SCAN\n";
+                break;
+            case READ:
+                s = processReadOperation(line);
+                if(s.empty()){
+                  printf("error\n");
+                  exit(-1);
+                }
+                cur.push_back(s);
+                // std::cout << "READ\n";
+                break;
+            case UPDATE:
+                s = processUpdateOperation(line);
+                if(s.empty()){
+                  printf("error\n");
+                  exit(-1);
+                }
+                cur.push_back(s);
+                // std::cout << "UPDATE\n";
+                break;
+            default:
+                std::cerr << "Unknown operation: " << line << std::endl;
+        }
   }
-  int minSize = cur.size() / FLAGS_num_client_threads;
-  int extra = cur.size() % FLAGS_num_client_threads;
+  // int minSize = cur.size() / FLAGS_num_client_threads;
+  // int extra = cur.size() % FLAGS_num_client_threads;
 
-  auto it = cur.begin();
+  // auto it = cur.begin();
   for (int i = 0; i < FLAGS_num_client_threads; ++i) {
-      int currentSize = minSize + (i < extra ? 1 : 0);
-      work_load[i].insert(work_load[i].end(), it, it + currentSize);
-      it += currentSize;
+    work_load[i] = cur;
+      // int currentSize = minSize + (i < extra ? 1 : 0);
+      // work_load[i].insert(work_load[i].end(), it, it + currentSize);
+      // it += currentSize;
   }
-  printf("work load cnts: %zu",cur.size());
+  size_t total = 0;
+  for(int i = 0 ; i < work_load.size(); i ++){
+    total += work_load[i].size();
+  }
+  printf("work load cnts: %zu",total);
   return 0;
 }
 int load_workload(const std::string& path,std::vector<std::pair<std::string,std::string>>& data){
@@ -81,7 +205,7 @@ int load_workload(const std::string& path,std::vector<std::pair<std::string,std:
             std::string key = match.str(1);
             std::string value = match.str(2);
             value.pop_back();
-            data.push_back({key,value});
+            data.emplace_back(key,value);
         }
       }
   }
@@ -123,7 +247,7 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // deserialize
   masstree::Req req;
   req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
-  assert(req.id()==1);
+  assert(req.req_type()==1);
   std::string value;
   // // std::cout << req.key() << std::endl;
   bool success = mti->get(req.key(), value, ti);
@@ -131,7 +255,7 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
     printf("error,not found%s\n",req.key().c_str());
   }
   masstree::Resp resp;
-  resp.set_id(1);
+  resp.set_req_type(kAppPointReqType);
   resp.set_value(value);
   erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
                                                  resp.ByteSizeLong());
@@ -141,70 +265,175 @@ void point_req_handler(erpc::ReqHandle *req_handle, void *_context) {
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 
-// void range_req_handler(erpc::ReqHandle *req_handle, void *_context) {
-//   auto *c = static_cast<AppContext *>(_context);
+void range_req_handler(erpc::ReqHandle *req_handle, void *_context) {
+  auto *c = static_cast<AppContext *>(_context);
 
-//   // Range request handler runs in a background thread
-//   const size_t etid = c->rpc_->get_etid();
-//   assert(etid < FLAGS_num_server_bg_threads);
+  // Range request handler runs in a background thread
+  const size_t etid = c->rpc_->get_etid();
+  assert(etid < FLAGS_num_server_bg_threads);
 
-//   if (kAppVerbose) {
-//     printf("main: Handling range request in eRPC thread %zu.\n", etid);
-//   }
+  if (kAppVerbose) {
+    printf("main: Handling range request in eRPC thread %zu.\n", etid);
+  }
 
-//   MtIndex *mti = c->server.mt_index;
-//   threadinfo_t *ti = c->server.ti_arr[etid];
-//   assert(mti != nullptr && ti != nullptr);
+  MtIndex *mti = c->server.mt_index;
+  threadinfo_t *ti = c->server.ti_arr[etid];
+  assert(mti != nullptr && ti != nullptr);
 
-//   const auto *req_msgbuf = req_handle->get_req_msgbuf();
-//   assert(req_msgbuf->get_data_size() == sizeof(wire_req_t));
+  const auto *req_msgbuf = req_handle->get_req_msgbuf();
+  //反序列化
+  masstree::Range_req req;
+  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
+  assert(req.req_type() == kAppRangeReqType);
+  // uint8_t key_copy[MtIndex::kKeySize];  // mti->sum_in_range() modifies key
+  // memcpy(key_copy, req.key(), MtIndex::kKeySize);
 
-//   auto *req = reinterpret_cast<const wire_req_t *>(req_msgbuf->buf_);
-//   assert(req->req_type == kAppRangeReqType);
-//   uint8_t key_copy[MtIndex::kKeySize];  // mti->sum_in_range() modifies key
-//   memcpy(key_copy, req->point_req.key, MtIndex::kKeySize);
+  const size_t count = mti->sum_in_range(req.key().c_str(),req.key().size(),req.range(), ti);
+  masstree::Resp resp;
+  resp.set_req_type(kAppRangeReqType);
+  resp.set_count(count);
+  auto &resp_msgbuf = req_handle->pre_resp_msgbuf_;
+  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&resp_msgbuf,
+                                                 resp.ByteSizeLong());
+  resp.SerializeToArray(resp_msgbuf.buf_, resp.ByteSizeLong());
+  // auto *resp =
+  //     reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
+  // resp->resp_type = RespType::kFound;
+  // resp->range_count = count;
 
-//   const size_t count = mti->sum_in_range(key_copy, req->range_req.range, ti);
+  c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+}
+void update_req_handler(erpc::ReqHandle *req_handle, void *_context) {
+  auto *c = static_cast<AppContext *>(_context);
 
-//   erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-//                                                  sizeof(wire_resp_t));
-//   auto *resp =
-//       reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
-//   resp->resp_type = RespType::kFound;
-//   resp->range_count = count;
+  // Range request handler runs in a background thread
+  const size_t etid = c->rpc_->get_etid();
+  assert(etid < FLAGS_num_server_bg_threads);
 
-//   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-// }
+  if (kAppVerbose) {
+    printf("main: Handling range request in eRPC thread %zu.\n", etid);
+  }
 
+  MtIndex *mti = c->server.mt_index;
+  threadinfo_t *ti = c->server.ti_arr[etid];
+  assert(mti != nullptr && ti != nullptr);
+
+  const auto *req_msgbuf = req_handle->get_req_msgbuf();
+  //反序列化
+  masstree::Update_req req;
+  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
+  erpc::rt_assert(req.req_type() == kAppUpdateReqType || req.req_type()== kAppInsertReqType, "error in type update/insert");
+  // uint8_t key_copy[MtIndex::kKeySize];  // mti->sum_in_range() modifies key
+  // memcpy(key_copy, req.key(), MtIndex::kKeySize);
+  mti->put(req.key(), req.value(), ti);
+  masstree::Resp resp;
+  resp.set_req_type(kAppUpdateReqType);
+  resp.set_success(1);
+  auto &resp_msgbuf = req_handle->pre_resp_msgbuf_;
+  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&resp_msgbuf,
+                                                 resp.ByteSizeLong());
+  resp.SerializeToArray(resp_msgbuf.buf_, resp.ByteSizeLong());
+  // auto *resp =
+  //     reinterpret_cast<wire_resp_t *>(req_handle->pre_resp_msgbuf_.buf_);
+  // resp->resp_type = RespType::kFound;
+  // resp->range_count = count;
+
+  c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+}
 // Send one request using this MsgBuffer
 // with protobuf
 void send_req(AppContext *c, size_t msgbuf_idx) {
-   erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
-  auto &cur_work = work_load[c->thread_id_]; // 问题出现在这
-  // Protobuf req
-  masstree::Req req;
-  req.set_id(1); // always use 1
-  req.set_key(cur_work[c->client.num_send_tot]); // get key
-  int len = req.ByteSizeLong();
-  if(req_msgbuf.get_data_size()!=len){
-    erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
-                                                 req.ByteSizeLong());
-  }
-
-  c->client.num_send_tot ++;
-  c->client.num_send_tot %=cur_work.size();
-  c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
-  // measure for serialize
-  req.SerializeToArray(req_msgbuf.buf_, len);
-  if (kAppVerbose) {
-    printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
-    sleep(1);
-  }
-
-  // always get no scan
-  c->rpc_->enqueue_request(0, kAppPointReqType, &req_msgbuf,
+  erpc::MsgBuffer &req_msgbuf = c->client.window_[msgbuf_idx].req_msgbuf_;
+  auto &cur = work_load[c->thread_id_]; // 问题出现在这
+  auto &cur_work = cur[c->client.num_send_tot];
+  auto type = *cur_work.begin();
+  if(type=='1'){ // read
+    auto user_id = cur_work.substr(1);
+    masstree::Req req;
+    req.set_req_type(kAppPointReqType);
+    req.set_key(user_id);
+    if(req.ByteSizeLong()!=req_msgbuf.get_data_size()){erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 req.ByteSizeLong());}
+    c->client.num_send_tot ++;
+    c->client.num_send_tot %=cur_work.size();
+    c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
+    // measure for serialize
+    req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
+    if (kAppVerbose) {
+      printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
+      sleep(1);
+    }
+    c->rpc_->enqueue_request(0, kAppPointReqType, &req_msgbuf,
                            &c->client.window_[msgbuf_idx].resp_msgbuf_,
                            app_cont_func, reinterpret_cast<void *>(msgbuf_idx));
+  }
+  else if(type=='2'){ // scan
+    int pos = cur_work.find('+');
+    masstree::Range_req req;
+    req.set_req_type(kAppRangeReqType);
+    req.set_range(stoi(cur_work.substr(pos+1)));
+    req.set_key(cur_work.substr(1,pos-1));
+    if(req.ByteSizeLong()!=req_msgbuf.get_data_size()){erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 req.ByteSizeLong());}
+    c->client.num_send_tot ++;
+    c->client.num_send_tot %=cur_work.size();
+    c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
+    // measure for serialize
+    req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
+    if (kAppVerbose) {
+      printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
+      sleep(1);
+    }
+    c->rpc_->enqueue_request(0, kAppRangeReqType, &req_msgbuf,
+                           &c->client.window_[msgbuf_idx].resp_msgbuf_,
+                           app_cont_func, reinterpret_cast<void *>(msgbuf_idx));
+  }
+  else if(type=='3'){ // update
+    int pos = cur_work.find('+');
+    masstree::Update_req req;
+    req.set_req_type(kAppUpdateReqType);
+    req.set_key(cur_work.substr(1,pos-1));
+    req.set_value(cur_work.substr(pos+1));
+    erpc::rt_assert(req.value().size()== MtIndex::kValueSize,
+                    "value size not equal to workload"); 
+    if(req.ByteSizeLong()!=req_msgbuf.get_data_size()){erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 req.ByteSizeLong());}
+    c->client.num_send_tot ++;
+    c->client.num_send_tot %=cur_work.size();
+    c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
+    // measure for serialize
+    req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
+    if (kAppVerbose) {
+      printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
+      sleep(1);
+    }
+    c->rpc_->enqueue_request(0, kAppUpdateReqType, &req_msgbuf,
+                           &c->client.window_[msgbuf_idx].resp_msgbuf_,
+                           app_cont_func, reinterpret_cast<void *>(msgbuf_idx));
+  }
+  else if(type=='4'){ // insert
+    int pos = cur_work.find('+');
+    masstree::Update_req req;
+    req.set_req_type(kAppInsertReqType);
+    req.set_key(cur_work.substr(1,pos-1));
+    req.set_value(cur_work.substr(pos+1));
+    erpc::rt_assert(req.value().size()== MtIndex::kValueSize,
+                    "value size not equal to workload"); 
+    if(req.ByteSizeLong()!=req_msgbuf.get_data_size()){erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_msgbuf,
+                                                 req.ByteSizeLong());}
+    c->client.num_send_tot ++;
+    c->client.num_send_tot %=cur_work.size();
+    c->client.window_[msgbuf_idx].req_ts_ = erpc::rdtsc(); // 这里开始记录延迟
+    // measure for serialize
+    req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
+    if (kAppVerbose) {
+      printf("main: Enqueuing request with msgbuf_idx %zu.\n", msgbuf_idx);
+      sleep(1);
+    }
+    c->rpc_->enqueue_request(0, kAppInsertReqType, &req_msgbuf,
+                           &c->client.window_[msgbuf_idx].resp_msgbuf_,
+                           app_cont_func, reinterpret_cast<void *>(msgbuf_idx));
+  }
 }
 
 
@@ -221,16 +450,18 @@ void app_cont_func(void *_context, void *_msgbuf_idx) {
   // deserialize
   masstree::Resp resp;
   resp.ParseFromArray(resp_msgbuf.buf_, resp_msgbuf.get_data_size());
-  erpc::rt_assert(resp.value().size() == 64,
-                  "Invalid response size");
 
   // latency
   const double usec =
       erpc::to_usec(erpc::rdtsc() - c->client.window_[msgbuf_idx].req_ts_,
                     c->rpc_->get_freq_ghz());
   assert(usec >= 0);
-
-  c->client.point_latency.update(static_cast<size_t>(usec * 10.0));  // < 1us
+  if(resp.req_type()==kAppPointReqType){
+    c->client.point_latency.update(static_cast<size_t>(usec * 10.0));  // < 1us
+    erpc::rt_assert(resp.value().size()==MtIndex::kValueSize, "req opt get error value!");
+  }else if(resp.req_type()==kAppRangeReqType){
+    c->client.range_latency.update(static_cast<size_t>(usec));
+  }
   c->client.num_resps_tot++;
   send_req(c, msgbuf_idx);
 }
@@ -243,13 +474,14 @@ void client_print_stats(AppContext &c) {
   stats.lat_us_50 = c.client.point_latency.perc(0.50) / 10.0;
   stats.lat_us_90 = c.client.point_latency.perc(0.90) / 10.0;
   stats.lat_us_99 = c.client.point_latency.perc(0.99) / 10.0;
+  stats.range_us_99 = c.client.range_latency.perc(0.99);
 
   printf(
       "Client %zu. Tput = %.3f Mrps. "
       "Point-query latency (us) = {%.1f 50th, %.1f 90th, %.1f 99th}. "
       "Range-query latency (us) = {%zu 99th}.\n",
       c.thread_id_, tput_mrps, stats.lat_us_50, stats.lat_us_90,
-      stats.lat_us_99, c.client.range_latency.perc(.99));
+      stats.lat_us_99, c.client.range_latency.perc(0.99));
 
   if (c.thread_id_ == 0) {
     app_stats_t accum;
@@ -259,6 +491,7 @@ void client_print_stats(AppContext &c) {
     accum.lat_us_50 /= FLAGS_num_client_threads;
     accum.lat_us_90 /= FLAGS_num_client_threads;
     accum.lat_us_99 /= FLAGS_num_client_threads;
+    accum.range_us_99 /= FLAGS_num_client_threads;
     c.tmp_stat_->write(accum.to_string());
   }
 
@@ -444,7 +677,7 @@ int main(int argc, char **argv) {
 
       // 这里读取.
       std::vector<std::pair<std::string,std::string>> server_workload;
-      load_workload("../data/ycsb_load.txt", server_workload);
+      load_workload(FLAGS_load_path, server_workload);
       // std::vector<size_t> shuffled_key_indices;
       // shuffled_key_indices.reserve(FLAGS_num_keys);
 
@@ -476,7 +709,10 @@ int main(int argc, char **argv) {
 
     nexus.register_req_func(kAppPointReqType, point_req_handler,
                             erpc::ReqFuncType::kForeground);
-
+    nexus.register_req_func(kAppRangeReqType,range_req_handler, 
+                            erpc::ReqFuncType::kForeground);
+    nexus.register_req_func(kAppUpdateReqType,update_req_handler, 
+                            erpc::ReqFuncType::kForeground);
     // auto range_handler_type = FLAGS_num_server_bg_threads > 0
     //                               ? erpc::ReqFuncType::kBackground
     //                               : erpc::ReqFuncType::kForeground;
@@ -496,7 +732,7 @@ int main(int argc, char **argv) {
   } 
   else { // 客户端
     work_load.resize(FLAGS_num_client_threads);
-    int ret = init_workload("../data/ycsb_run.txt");
+    int ret = init_workload(FLAGS_run_path);
     if(ret==-1){
       printf("error!\n");
       exit(-1);
