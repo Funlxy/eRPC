@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message put_req{
+    bytes key = 1;
+    bytes value = 2;
+}
