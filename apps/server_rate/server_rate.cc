@@ -1,7 +1,9 @@
 #include <flatbuffers/flatbuffer_builder.h>
 #include <gflags/gflags.h>
 #include <signal.h>
+#include <cstdio>
 #include <cstring>
+#include <iostream>
 #include "../apps_common.h"
 #include "rpc.h"
 #include "util/autorun_helpers.h"
@@ -57,9 +59,9 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
 void server_func(erpc::Nexus *nexus, size_t thread_id) {
   std::vector<size_t> port_vec = flags_get_numa_ports(FLAGS_numa_node);
   uint8_t phy_port = port_vec.at(0);
-
+  std::cout << thread_id << std::endl;
   ServerContext c;
-  erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), thread_id,
+  erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), static_cast<uint8_t>(thread_id),
                                   basic_sm_handler, phy_port);
   c.rpc_ = &rpc;
   s = std::string(FLAGS_resp_size,'a');
@@ -100,7 +102,7 @@ inline void send_req(ClientContext &c, size_t ws_i) {
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
   memcpy(c.req_msgbuf[ws_i].buf_, serialized_buffer, serialized_size);
-  c.rpc_->enqueue_request(c.session_num_vec_[c.thread_id], kAppReqType,
+  c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                          &c.req_msgbuf[ws_i], &c.resp_msgbuf[ws_i],
                          app_cont_func, reinterpret_cast<void *>(ws_i));
 }
@@ -126,7 +128,7 @@ void create_sessions(ClientContext &c) {
 
   // for (size_t i = 0; i < FLAGS_num_server_threads; i++) {
     
-    int session_num = c.rpc_->create_session(server_uri, c.thread_id_);
+    int session_num = c.rpc_->create_session(server_uri, c.thread_id);
     erpc::rt_assert(session_num >= 0, "Failed to create session");
     c.session_num_vec_.push_back(session_num);
   // }

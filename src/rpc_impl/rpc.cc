@@ -3,6 +3,7 @@
  * @brief Simple Rpc-related methods.
  */
 #include <algorithm>
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 
@@ -32,11 +33,9 @@ Rpc<TTr>::Rpc(Nexus *nexus, void *context, uint8_t rpc_id,
   rt_assert(!nexus->rpc_id_exists(rpc_id), "Rpc ID already exists");
   rt_assert(phy_port < kMaxPhyPorts, "Invalid physical port");
   rt_assert(numa_node_ < kMaxNumaNodes, "Invalid NUMA node");
-
   tls_registry_ = &nexus->tls_registry_;
   tls_registry_->init();  // Initialize thread-local variables for this thread
   creator_etid_ = get_etid();
-
   if (ERPC_LOG_LEVEL >= ERPC_LOG_LEVEL_REORDER) {
     const auto trace_filename = "/tmp/erpc_trace_" +
                                 std::to_string(nexus->sm_udp_port_) + "-rpc_" +
