@@ -70,7 +70,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
 
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
-  erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
+  // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
   auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
   auto Resp = Hello::CreateResponse(builder,offset);
   builder.Finish(Resp);
@@ -148,7 +148,7 @@ void app_cont_func(void *_context, void *) {
   // Deserialize
    /* Deserialize Req */
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf_.buf_);
-  erpc::rt_assert(Resp->message()->size()==FLAGS_resp_size,"Check Resp Size Error!\n");                                                 /* Serialize Resp */
+  // erpc::rt_assert(Resp->message()->size()==FLAGS_resp_size,"Check Resp Size Error!\n");                                                 /* Serialize Resp */
 
   if (kAppVerbose) {
     printf("Latency: Received response of size %zu bytes\n",
