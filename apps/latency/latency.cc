@@ -125,8 +125,8 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
-  flatbuffers::FlatBufferBuilder builder(t_size);
   c.start_tsc_ = erpc::rdtsc();
+  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Serialize */
   auto offset = builder.CreateVector((uint8_t*)s.c_str(),s.size());
