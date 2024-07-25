@@ -63,10 +63,9 @@ class ClientContext : public BasicAppContext {
 
   ~ClientContext() { hdr_close(latency_hist_); }
 };
-
+flatbuffers::FlatBufferBuilder builder(t_size);
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
-  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
@@ -78,6 +77,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto serialized_size = builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+  builder.Clear();
 }
 std::string s;
 void server_func(erpc::Nexus *nexus) {
