@@ -63,23 +63,22 @@ class ClientContext : public BasicAppContext {
 
   ~ClientContext() { hdr_close(latency_hist_); }
 };
-flatbuffers::FlatBufferBuilder builder(t_size);
+std::string s;
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
+  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
-  auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
   auto Resp = Hello::CreateResponse(builder,offset);
   builder.Finish(Resp);
   auto *serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-  builder.Clear();
 }
-std::string s;
 void server_func(erpc::Nexus *nexus) {
   printf("Latency: Running server, process ID %zu\n", FLAGS_process_id);
   std::vector<size_t> port_vec = flags_get_numa_ports(FLAGS_numa_node);
@@ -130,7 +129,7 @@ inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
 
   /* Serialize */
-  auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),s.size());
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
