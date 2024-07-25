@@ -2,7 +2,7 @@
 --sm_verbose 0
 --num_server_threads 1
 --num_client_threads 1
---window_size 1
+--window_size 16
 --req_size 512
 --resp_size 32
 --num_processes 2
