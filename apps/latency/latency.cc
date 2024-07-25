@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "../apps_common.h"
 #include "HdrHistogram_c/src/hdr_histogram.h"
@@ -24,6 +25,7 @@ static constexpr size_t kAppEndReqSize = 1024;
 
 // Precision factor for latency measurement
 static constexpr double kAppLatFac = erpc::kIsAzure ? 1.0 : 10.0;
+flatbuffers::FlatBufferBuilder builder;
 
 volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
@@ -31,7 +33,6 @@ void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
 DEFINE_uint64(num_server_processes, 1, "Number of server processes");
 DEFINE_uint64(resp_size, 8, "Size of the server's RPC response in bytes");
 DEFINE_uint64(req_size, 8, "Size of the client's RPC request in bytes");
-
 class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
@@ -67,19 +68,16 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
-  erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
-  flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
   auto Resp = Hello::CreateResponse(builder,offset);
   builder.Finish(Resp);
   auto *serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
-  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 serialized_size);
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+  builder.Clear();
 }
-
+std::string s;
 void server_func(erpc::Nexus *nexus) {
   printf("Latency: Running server, process ID %zu\n", FLAGS_process_id);
   std::vector<size_t> port_vec = flags_get_numa_ports(FLAGS_numa_node);
@@ -89,7 +87,13 @@ void server_func(erpc::Nexus *nexus) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
 
-  rpc.set_pre_resp_msgbuf_size(FLAGS_resp_size + 64);
+  s = std::string(FLAGS_resp_size,'a');
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  rpc.set_pre_resp_msgbuf_size(serialized_size);
   c.rpc_ = &rpc;
 
   while (true) {
@@ -118,27 +122,21 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
+  builder.Clear();
   c.start_tsc_ = erpc::rdtsc();
 
   /* Serialize */
-  flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
-  c.rpc_->resize_msg_buffer(&c.req_msgbuf_, serialized_size);
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
 
-  const size_t server_id = c.fastrand_.next_u32() % FLAGS_num_server_processes;
-  c.rpc_->enqueue_request(c.session_num_vec_[server_id], kAppReqType,
+  c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
-  if (kAppVerbose) {
-    printf("Latency: Sending request of size %zu bytes to server #%zu\n",
-           c.req_msgbuf_.get_data_size(), server_id);
-  }
 }
 
 void app_cont_func(void *_context, void *) {
@@ -175,11 +173,17 @@ void client_func(erpc::Nexus *nexus) {
   rpc.retry_connect_on_invalid_rpc_id_ = true;
   c.rpc_ = &rpc;
   c.req_size_ = FLAGS_req_size;
+  auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+
 
   // extra bytes for MetaData of Serialize
-  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_req_size+64);
+  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(serialized_size);
   c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+64);
-
+  builder.Clear();
   connect_sessions(c);
 
   printf("Latency: Process %zu: Session connected. Starting work.\n",
