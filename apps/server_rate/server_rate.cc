@@ -91,7 +91,7 @@ inline void send_req(ClientContext &c, size_t ws_i) {
   Hello::Req req;
   req.set_data(s.c_str());
   req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
-  c.rpc_->enqueue_request(c.fast_get_rand_session_num(), kAppReqType,
+  c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                          &c.req_msgbuf[ws_i], &c.resp_msgbuf[ws_i],
                          app_cont_func, reinterpret_cast<void *>(ws_i));
 }
@@ -103,8 +103,8 @@ void app_cont_func(void *_context, void *_ws_i) {
   // 反序列化
   Hello::Resp resp;
   resp.ParseFromArray(resp_msgbuf.buf_, resp_msgbuf.get_data_size());
-  assert(resp.data.size() == FLAGS_resp_size);
   const double req_lat_us = c->start_time[ws_i].get_us();
+  assert(resp.data.size() == FLAGS_resp_size);
   c->latency.update(static_cast<size_t>(req_lat_us * kAppLatFac));
   c->num_resps++;
 
@@ -157,7 +157,7 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   req.set_data(s.c_str());
   for (size_t i = 0; i < FLAGS_window_size; i++) {
     c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
-    c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+16);
+    c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+32);
     send_req(c, i);
   }
 
