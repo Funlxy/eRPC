@@ -33,6 +33,7 @@ class ClientContext : public BasicAppContext {
  public:
   size_t num_resps = 0;
   size_t thread_id;
+  size_t total_latency;
   erpc::ChronoTimer start_time[kAppMaxWindowSize];
   erpc::Latency latency;
   erpc::MsgBuffer req_msgbuf[kAppMaxWindowSize], resp_msgbuf[kAppMaxWindowSize];
@@ -110,6 +111,7 @@ void app_cont_func(void *_context, void *_ws_i) {
   const auto ws_i = reinterpret_cast<size_t>(_ws_i);
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf[ws_i].buf_);
   const double req_lat_us = c->start_time[ws_i].get_us();
+  c->total_latency += req_lat_us*10;
   c->latency.update(static_cast<size_t>(req_lat_us * kAppLatFac));
   c->num_resps++;
 
@@ -176,11 +178,12 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
     if (ctrl_c_pressed == 1) break;
 
     const double seconds = start.get_sec();
+    auto time_cost = (c.total_latency/kAppLatFac) / Mi(1);
     printf("%zu: %.1f %.1f %.1f %.1f %.2f\n", thread_id,
            c.latency.perc(.5) / kAppLatFac, c.latency.perc(.05) / kAppLatFac,
            c.latency.perc(.99) / kAppLatFac, c.latency.perc(.999) / kAppLatFac,
-           c.num_resps / c.latency.sum());
-
+           c.num_resps / (time_cost * Mi(1)));
+    
     c.num_resps = 0;
     c.latency.reset();
   }
