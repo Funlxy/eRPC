@@ -240,6 +240,9 @@ endif()
 if(APP STREQUAL "latency")
   set(APP_ADDITIONAL_SOURCES
   apps/latency/protobuf/message.pb.cc)
+elseif(APP STREQUAL "server_rate")
+  set(APP_ADDITIONAL_SOURCES
+  apps/server_rate/protobuf/message.pb.cc)
 elseif(APP STREQUAL "smr")
   include_directories(mica/src)
   add_subdirectory(${CMAKE_SOURCE_DIR}/apps/smr/willemt_raft)
