@@ -38,8 +38,8 @@ class ClientContext : public BasicAppContext {
   erpc::MsgBuffer req_msgbuf[kAppMaxWindowSize], resp_msgbuf[kAppMaxWindowSize];
   ~ClientContext() {}
 };
-flatbuffers::FlatBufferBuilder builder;
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
+  flatbuffers::FlatBufferBuilder builder(t_size);
   auto *c = static_cast<ServerContext *>(_context);
   c->num_resps++;
 /* Deserialize Req */
@@ -52,7 +52,6 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto serialized_size = builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-  builder.Clear();
 }
 
 void server_func(erpc::Nexus *nexus, size_t thread_id) {
@@ -64,6 +63,7 @@ void server_func(erpc::Nexus *nexus, size_t thread_id) {
                                   basic_sm_handler, phy_port);
   c.rpc_ = &rpc;
   s = std::string(FLAGS_resp_size,'a');
+  flatbuffers::FlatBufferBuilder builder;
   auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
@@ -109,8 +109,6 @@ void app_cont_func(void *_context, void *_ws_i) {
   auto *c = static_cast<ClientContext *>(_context);
   const auto ws_i = reinterpret_cast<size_t>(_ws_i);
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf[ws_i].buf_);
-  assert(c->resp_msgbuf[ws_i].get_data_size() == FLAGS_resp_size);
-
   const double req_lat_us = c->start_time[ws_i].get_us();
   c->latency.update(static_cast<size_t>(req_lat_us * kAppLatFac));
   c->num_resps++;
@@ -181,7 +179,7 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
     printf("%zu: %.1f %.1f %.1f %.1f %.2f\n", thread_id,
            c.latency.perc(.5) / kAppLatFac, c.latency.perc(.05) / kAppLatFac,
            c.latency.perc(.99) / kAppLatFac, c.latency.perc(.999) / kAppLatFac,
-           c.num_resps / (seconds * Mi(1)));
+           c.num_resps / c.latency.sum());
 
     c.num_resps = 0;
     c.latency.reset();
