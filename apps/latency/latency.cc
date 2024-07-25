@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <string>
 
 #include "../apps_common.h"
@@ -36,7 +37,7 @@ class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
 };
-
+size_t t_size;
 class ClientContext : public BasicAppContext {
   static constexpr int64_t kMinLatencyMicros = 1;
   static constexpr int64_t kMaxLatencyMicros = 1000 * 1000 * 100;  // 100 sec
@@ -65,10 +66,11 @@ class ClientContext : public BasicAppContext {
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
-  flatbuffers::FlatBufferBuilder builder;
+  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
+  erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
   auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
   auto Resp = Hello::CreateResponse(builder,offset);
   builder.Finish(Resp);
@@ -94,6 +96,7 @@ void server_func(erpc::Nexus *nexus) {
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
+  t_size = serialized_size;
   rpc.set_pre_resp_msgbuf_size(serialized_size);
   c.rpc_ = &rpc;
 
@@ -124,7 +127,7 @@ void connect_sessions(ClientContext &c) {
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
-  flatbuffers::FlatBufferBuilder builder;
+  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Serialize */
   auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
@@ -181,7 +184,7 @@ void client_func(erpc::Nexus *nexus) {
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
   auto serialized_size = builder.GetSize();
-
+  t_size = serialized_size;
 
   // extra bytes for MetaData of Serialize
   c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(serialized_size);
