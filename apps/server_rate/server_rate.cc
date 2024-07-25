@@ -1,3 +1,4 @@
+#include <flatbuffers/flatbuffer_builder.h>
 #include <gflags/gflags.h>
 #include <signal.h>
 #include <cstring>
@@ -7,7 +8,7 @@
 #include "util/latency.h"
 #include "util/numautils.h"
 #include "util/timer.h"
-
+#include "flatbuffers/meessage_generated.h"
 static constexpr size_t kAppEvLoopMs = 1000;     // Duration of event loop
 static constexpr bool kAppVerbose = false;       // Print debug info on datapath
 static constexpr double kAppLatFac = 10.0;       // Precision factor for latency
@@ -19,7 +20,7 @@ DEFINE_uint64(num_client_threads, 1, "Number of threads per client machine");
 DEFINE_uint64(window_size, 1, "Outstanding requests per client");
 DEFINE_uint64(req_size, 64, "Size of request message in bytes");
 DEFINE_uint64(resp_size, 32, "Size of response message in bytes ");
-
+size_t t_size;
 volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
 
@@ -27,7 +28,7 @@ class ServerContext : public BasicAppContext {
  public:
   size_t num_resps = 0;
 };
-
+std::string s;
 class ClientContext : public BasicAppContext {
  public:
   size_t num_resps = 0;
@@ -37,14 +38,21 @@ class ClientContext : public BasicAppContext {
   erpc::MsgBuffer req_msgbuf[kAppMaxWindowSize], resp_msgbuf[kAppMaxWindowSize];
   ~ClientContext() {}
 };
-
+flatbuffers::FlatBufferBuilder builder;
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   c->num_resps++;
-
-  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 FLAGS_resp_size);
+/* Deserialize Req */
+  auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
+  // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
+  auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
+  auto Resp = Hello::CreateResponse(builder,offset);
+  builder.Finish(Resp);
+  auto *serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+  builder.Clear();
 }
 
 void server_func(erpc::Nexus *nexus, size_t thread_id) {
@@ -55,7 +63,15 @@ void server_func(erpc::Nexus *nexus, size_t thread_id) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), thread_id,
                                   basic_sm_handler, phy_port);
   c.rpc_ = &rpc;
-
+  s = std::string(FLAGS_resp_size,'a');
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  t_size = serialized_size;
+  builder.Clear();
+  rpc.set_pre_resp_msgbuf_size(serialized_size);
   while (true) {
     c.num_resps = 0;
     erpc::ChronoTimer start;
@@ -75,8 +91,16 @@ void server_func(erpc::Nexus *nexus, size_t thread_id) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c, size_t ws_i) {
+  flatbuffers::FlatBufferBuilder builder(t_size);
   c.start_time[ws_i].reset();
-  c.rpc_->enqueue_request(c.fast_get_rand_session_num(), kAppReqType,
+  /* Serialize */
+  auto offset = builder.CreateVector(c.req_msgbuf[ws_i].buf_,FLAGS_req_size);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  memcpy(c.req_msgbuf[ws_i].buf_, serialized_buffer, serialized_size);
+  c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                          &c.req_msgbuf[ws_i], &c.resp_msgbuf[ws_i],
                          app_cont_func, reinterpret_cast<void *>(ws_i));
 }
@@ -84,6 +108,7 @@ inline void send_req(ClientContext &c, size_t ws_i) {
 void app_cont_func(void *_context, void *_ws_i) {
   auto *c = static_cast<ClientContext *>(_context);
   const auto ws_i = reinterpret_cast<size_t>(_ws_i);
+  auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf[ws_i].buf_);
   assert(c->resp_msgbuf[ws_i].get_data_size() == FLAGS_resp_size);
 
   const double req_lat_us = c->start_time[ws_i].get_us();
@@ -101,13 +126,13 @@ void create_sessions(ClientContext &c) {
            FLAGS_num_server_threads, server_uri.c_str());
   }
 
-  for (size_t i = 0; i < FLAGS_num_server_threads; i++) {
-    int session_num = c.rpc_->create_session(server_uri, i);
+  // for (size_t i = 0; i < FLAGS_num_server_threads; i++) {
+    int session_num = c.rpc_->create_session(server_uri, c.thread_id_);
     erpc::rt_assert(session_num >= 0, "Failed to create session");
     c.session_num_vec_.push_back(session_num);
-  }
+  // }
 
-  while (c.num_sm_resps_ != FLAGS_num_server_threads) {
+  while (c.num_sm_resps_ != 1) {
     c.rpc_->run_event_loop(kAppEvLoopMs);
     if (unlikely(ctrl_c_pressed == 1)) return;
   }
@@ -124,7 +149,15 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   rpc.retry_connect_on_invalid_rpc_id_ = true;
   c.rpc_ = &rpc;
   c.thread_id = thread_id;
+  s = std::string(FLAGS_req_size,'a');
+  flatbuffers::FlatBufferBuilder builder;
 
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_req_size);
+  auto Req = Hello::CreateRequest(builder,offset);
+  builder.Finish(Req);
+  uint8_t* serialized_buffer = builder.GetBufferPointer();
+  auto serialized_size = builder.GetSize();
+  t_size = serialized_size;
   create_sessions(c);
 
   printf("Process %zu, thread %zu: Connected. Starting work.\n",
@@ -134,8 +167,8 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   }
 
   for (size_t i = 0; i < FLAGS_window_size; i++) {
-    c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_req_size);
-    c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size);
+    c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(serialized_size);
+    c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+64);
     send_req(c, i);
   }
 
