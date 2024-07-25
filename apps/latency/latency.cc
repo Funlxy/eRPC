@@ -88,7 +88,7 @@ void server_func(erpc::Nexus *nexus) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
   s = std::string(FLAGS_resp_size,'a');
-  resp.set_data(s);
+  resp.set_data(s.c_str());
   rpc.set_pre_resp_msgbuf_size(resp.ByteSizeLong());
   c.rpc_ = &rpc;
 
@@ -158,7 +158,7 @@ void client_func(erpc::Nexus *nexus) {
 
   c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+32);
   s = std::string(FLAGS_req_size,'a');
-  req.set_data(s);
+  req.set_data(s.c_str());
     c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
 
   connect_sessions(c);
