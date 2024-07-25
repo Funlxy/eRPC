@@ -1,6 +1,7 @@
 #include <gflags/gflags.h>
 #include <signal.h>
 #include <cstring>
+#include <string>
 #include "../apps_common.h"
 #include "rpc.h"
 #include "util/autorun_helpers.h"
@@ -49,8 +50,6 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // 序列化
   Hello::Resp resp;
   resp.set_data(resp_msgbuf.buf_,FLAGS_resp_size);
-  erpc::Rpc<erpc::CTransport>::resize_msg_buffer(&req_handle->pre_resp_msgbuf_,
-                                                 resp.ByteSizeLong());
   resp.SerializeToArray(resp_msgbuf.buf_, resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
@@ -63,7 +62,10 @@ void server_func(erpc::Nexus *nexus, size_t thread_id) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), thread_id,
                                   basic_sm_handler, phy_port);
   c.rpc_ = &rpc;
-  c.rpc_->set_pre_resp_msgbuf_size(FLAGS_resp_size+16);
+  Hello::Resp resp;
+  std::string s = std::string(FLAGS_resp_size,'a');
+  resp.set_data(s.c_str());
+  c.rpc_->set_pre_resp_msgbuf_size(resp.ByteSizeLong());
   while (true) {
     c.num_resps = 0;
     erpc::ChronoTimer start;
@@ -88,7 +90,6 @@ inline void send_req(ClientContext &c, size_t ws_i) {
   // 序列化
   Hello::Req req;
   req.set_data(req_msgbuf.buf_,FLAGS_req_size);
-  c.rpc_->resize_msg_buffer(&req_msgbuf, req.ByteSizeLong());
   req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
   c.rpc_->enqueue_request(c.fast_get_rand_session_num(), kAppReqType,
                          &c.req_msgbuf[ws_i], &c.resp_msgbuf[ws_i],
@@ -151,9 +152,11 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   if (thread_id == 0) {
     printf("thread_id: median_us 5th_us 99th_us 999th_us Mops\n");
   }
-
+  std::string s = std::string(FLAGS_req_size,'a');
+  Hello::Req req;
+  req.set_data(s.c_str());
   for (size_t i = 0; i < FLAGS_window_size; i++) {
-    c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_req_size+16);
+    c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
     c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+16);
     send_req(c, i);
   }
