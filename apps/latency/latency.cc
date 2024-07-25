@@ -160,7 +160,6 @@ void app_cont_func(void *_context, void *) {
 
   send_req(*c);
 }
-
 void client_func(erpc::Nexus *nexus) {
   printf("Latency: Running client, process ID %zu\n", FLAGS_process_id);
   std::vector<size_t> port_vec = flags_get_numa_ports(FLAGS_numa_node);
@@ -173,7 +172,8 @@ void client_func(erpc::Nexus *nexus) {
   rpc.retry_connect_on_invalid_rpc_id_ = true;
   c.rpc_ = &rpc;
   c.req_size_ = FLAGS_req_size;
-  auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
+  s = std::string(FLAGS_req_size,'a');
+  auto offset = builder.CreateVector((uint8_t*)s.c_str(),c.req_size_);
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
   uint8_t* serialized_buffer = builder.GetBufferPointer();
