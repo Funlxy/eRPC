@@ -28,8 +28,6 @@ DEFINE_uint64(num_server_processes, 1, "Number of server processes");
 DEFINE_uint64(req_size, 8, "Size of the server's RPC response in bytes");
 
 DEFINE_uint64(resp_size, 8, "Size of the server's RPC response in bytes");
-Hello::Req req;
-Hello::Resp resp;
 std::string s;
 class ServerContext : public BasicAppContext {
  public:
@@ -120,18 +118,19 @@ void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
   // 序列化
+  Hello::Req req;
   req.set_data(s.c_str());
   req.SerializeToArray(c.req_msgbuf_.buf_, req.ByteSizeLong());
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
 }
-Hello::Resp cur_resp;
 
 void app_cont_func(void *_context, void *) {
   auto *c = static_cast<ClientContext *>(_context);
   // assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
   // 反序列化
+  Hello::Resp cur_resp;
   cur_resp.ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());  
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());

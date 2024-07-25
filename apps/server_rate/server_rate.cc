@@ -20,7 +20,7 @@ DEFINE_uint64(num_client_threads, 1, "Number of threads per client machine");
 DEFINE_uint64(window_size, 1, "Outstanding requests per client");
 DEFINE_uint64(req_size, 64, "Size of request message in bytes");
 DEFINE_uint64(resp_size, 32, "Size of response message in bytes ");
-
+std::string s;
 volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
 
@@ -49,7 +49,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto& resp_msgbuf = req_handle->pre_resp_msgbuf_;
   // 序列化
   Hello::Resp resp;
-  resp.set_data(resp_msgbuf.buf_,FLAGS_resp_size);
+  resp.set_data(s.c_str());
   resp.SerializeToArray(resp_msgbuf.buf_, resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
@@ -63,7 +63,7 @@ void server_func(erpc::Nexus *nexus, size_t thread_id) {
                                   basic_sm_handler, phy_port);
   c.rpc_ = &rpc;
   Hello::Resp resp;
-  std::string s = std::string(FLAGS_resp_size,'a');
+  s = std::string(FLAGS_resp_size,'a');
   resp.set_data(s.c_str());
   c.rpc_->set_pre_resp_msgbuf_size(resp.ByteSizeLong());
   while (true) {
@@ -89,7 +89,7 @@ inline void send_req(ClientContext &c, size_t ws_i) {
   c.start_time[ws_i].reset();
   // 序列化
   Hello::Req req;
-  req.set_data(req_msgbuf.buf_,FLAGS_req_size);
+  req.set_data(s.c_str());
   req.SerializeToArray(req_msgbuf.buf_, req.ByteSizeLong());
   c.rpc_->enqueue_request(c.fast_get_rand_session_num(), kAppReqType,
                          &c.req_msgbuf[ws_i], &c.resp_msgbuf[ws_i],
@@ -152,7 +152,7 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   if (thread_id == 0) {
     printf("thread_id: median_us 5th_us 99th_us 999th_us Mops\n");
   }
-  std::string s = std::string(FLAGS_req_size,'a');
+  s = std::string(FLAGS_req_size,'a');
   Hello::Req req;
   req.set_data(s.c_str());
   for (size_t i = 0; i < FLAGS_window_size; i++) {
