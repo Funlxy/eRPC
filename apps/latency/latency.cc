@@ -25,7 +25,6 @@ static constexpr size_t kAppEndReqSize = 1024;
 
 // Precision factor for latency measurement
 static constexpr double kAppLatFac = erpc::kIsAzure ? 1.0 : 10.0;
-flatbuffers::FlatBufferBuilder builder;
 
 volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
@@ -66,6 +65,8 @@ class ClientContext : public BasicAppContext {
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
+  flatbuffers::FlatBufferBuilder builder;
+
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   auto offset = builder.CreateVector(req_handle->pre_resp_msgbuf_.buf_,FLAGS_resp_size);
@@ -75,7 +76,6 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto serialized_size = builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-  builder.Clear();
 }
 std::string s;
 void server_func(erpc::Nexus *nexus) {
@@ -86,6 +86,7 @@ void server_func(erpc::Nexus *nexus) {
   ServerContext c;
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
+  flatbuffers::FlatBufferBuilder builder;
 
   s = std::string(FLAGS_resp_size,'a');
   auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
@@ -122,8 +123,8 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
-  builder.Clear();
   c.start_tsc_ = erpc::rdtsc();
+  flatbuffers::FlatBufferBuilder builder;
 
   /* Serialize */
   auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
@@ -173,6 +174,8 @@ void client_func(erpc::Nexus *nexus) {
   c.rpc_ = &rpc;
   c.req_size_ = FLAGS_req_size;
   s = std::string(FLAGS_req_size,'a');
+  flatbuffers::FlatBufferBuilder builder;
+
   auto offset = builder.CreateVector((uint8_t*)s.c_str(),c.req_size_);
   auto Req = Hello::CreateRequest(builder,offset);
   builder.Finish(Req);
@@ -183,7 +186,6 @@ void client_func(erpc::Nexus *nexus) {
   // extra bytes for MetaData of Serialize
   c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(serialized_size);
   c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+64);
-  builder.Clear();
   connect_sessions(c);
 
   printf("Latency: Process %zu: Session connected. Starting work.\n",
