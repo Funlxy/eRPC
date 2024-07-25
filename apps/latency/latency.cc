@@ -68,6 +68,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   cur_req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   // 序列化
   auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
+  Hello::Resp resp;
   resp.set_data(s.c_str());
   resp.SerializeToArray(resp_msgbuf->buf_, resp.ByteSizeLong());
   // Hello::Resp resp;
@@ -86,6 +87,7 @@ void server_func(erpc::Nexus *nexus) {
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
   s = std::string(FLAGS_resp_size,'a');
+  Hello::Resp resp;
   resp.set_data(s.c_str());
   rpc.set_pre_resp_msgbuf_size(resp.ByteSizeLong());
   c.rpc_ = &rpc;
@@ -157,8 +159,9 @@ void client_func(erpc::Nexus *nexus) {
 
   c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+32);
   s = std::string(FLAGS_req_size,'a');
+  Hello::Req req;
   req.set_data(s.c_str());
-    c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
+  c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
 
   connect_sessions(c);
 

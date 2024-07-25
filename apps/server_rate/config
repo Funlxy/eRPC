@@ -3,7 +3,7 @@
 --num_server_threads 1
 --num_client_threads 1
 --window_size 16
---req_size 32768
+--req_size 8192
 --resp_size 32
 --num_processes 2
 --numa_0_ports 0
