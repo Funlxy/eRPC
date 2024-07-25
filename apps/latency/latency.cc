@@ -70,7 +70,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   cur_req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   // 序列化
   auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
-  resp.set_data(s);
+  // resp.set_data(s);
   resp.SerializeToArray(resp_msgbuf->buf_, resp.ByteSizeLong());
   // Hello::Resp resp;
   // resp.set_data(resp_msgbuf->buf_,FLAGS_resp_size);
@@ -120,7 +120,7 @@ void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
   // 序列化
-  req.set_data(s);
+  // req.set_data(s);
   req.SerializeToArray(c.req_msgbuf_.buf_, req.ByteSizeLong());
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
