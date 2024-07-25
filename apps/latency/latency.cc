@@ -126,8 +126,8 @@ void connect_sessions(ClientContext &c) {
 
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
-  c.start_tsc_ = erpc::rdtsc();
   flatbuffers::FlatBufferBuilder builder(t_size);
+  c.start_tsc_ = erpc::rdtsc();
 
   /* Serialize */
   auto offset = builder.CreateVector(c.req_msgbuf_.buf_,c.req_size_);
@@ -137,7 +137,6 @@ inline void send_req(ClientContext &c) {
   auto serialized_size = builder.GetSize();
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
   /* Serialize */
-
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
@@ -149,12 +148,6 @@ void app_cont_func(void *_context, void *) {
    /* Deserialize Req */
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf_.buf_);
   // erpc::rt_assert(Resp->message()->size()==FLAGS_resp_size,"Check Resp Size Error!\n");                                                 /* Serialize Resp */
-
-  if (kAppVerbose) {
-    printf("Latency: Received response of size %zu bytes\n",
-           c->resp_msgbuf_.get_data_size());
-  }
-
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());
 
