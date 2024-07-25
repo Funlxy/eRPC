@@ -33,7 +33,7 @@ class ClientContext : public BasicAppContext {
  public:
   size_t num_resps = 0;
   size_t thread_id;
-  size_t total = 0;
+  double total = 0;
   erpc::ChronoTimer start_time[kAppMaxWindowSize];
   erpc::Latency latency;
   erpc::MsgBuffer req_msgbuf[kAppMaxWindowSize], resp_msgbuf[kAppMaxWindowSize];
@@ -112,7 +112,7 @@ void app_cont_func(void *_context, void *_ws_i) {
   auto* Resp = flatbuffers::GetRoot<Hello::Response>(c->resp_msgbuf[ws_i].buf_);
   const double req_lat_us = c->start_time[ws_i].get_us();
   c->latency.update(static_cast<size_t>(req_lat_us * kAppLatFac));
-  c->total+= req_lat_us;
+  c->total+= req_lat_us*10;
   c->num_resps++;
 
   send_req(*c, ws_i);  // Clock the used window slot
@@ -181,7 +181,7 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
     printf("%zu: %.1f %.1f %.1f %.1f %.2f\n", thread_id,
            c.latency.perc(.5) / kAppLatFac, c.latency.perc(.05) / kAppLatFac,
            c.latency.perc(.99) / kAppLatFac, c.latency.perc(.999) / kAppLatFac,
-           c.num_resps / (c.total));
+           c.num_resps / (c.total/kAppLatFac));
     c.total = 0;
     c.num_resps = 0;
     c.latency.reset();
