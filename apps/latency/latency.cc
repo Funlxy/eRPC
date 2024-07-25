@@ -61,12 +61,12 @@ class ClientContext : public BasicAppContext {
 
   ~ClientContext() { hdr_close(latency_hist_); }
 };
+Hello::Req cur_req;
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
-  Hello::Req cur_req;
   cur_req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   // 序列化
   auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
@@ -126,12 +126,12 @@ inline void send_req(ClientContext &c) {
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
 }
+  Hello::Resp cur_resp;
 
 void app_cont_func(void *_context, void *) {
   auto *c = static_cast<ClientContext *>(_context);
   // assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
   // 反序列化
-  Hello::Resp cur_resp;
   cur_resp.ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());  
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());
