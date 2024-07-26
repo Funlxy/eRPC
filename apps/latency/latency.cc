@@ -36,6 +36,8 @@ DEFINE_uint64(req_size, 8, "Size of the client's RPC request in bytes");
 class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
+  flatbuffers::FlatBufferBuilder builder;
+
 };
 size_t t_size;
 class ClientContext : public BasicAppContext {
@@ -50,7 +52,7 @@ class ClientContext : public BasicAppContext {
   hdr_histogram *latency_hist_;
   size_t latency_samples_ = 0;
   size_t latency_samples_prev_ = 0;
-
+  flatbuffers::FlatBufferBuilder builder;
   // If true, the client doubles its request size (up to kAppEndReqSize) when
   // issuing the next request, and resets this flag to false
   bool double_req_size_ = false;
@@ -66,16 +68,15 @@ class ClientContext : public BasicAppContext {
 std::string s;
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
-  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
-  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
-  auto Resp = Hello::CreateResponse(builder,offset);
-  builder.Finish(Resp);
-  auto *serialized_buffer = builder.GetBufferPointer();
-  auto serialized_size = builder.GetSize();
+  auto offset = c->builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
+  auto Resp = Hello::CreateResponse(c->builder,offset);
+  c->builder.Finish(Resp);
+  auto *serialized_buffer = c->builder.GetBufferPointer();
+  auto serialized_size = c->builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
@@ -87,18 +88,17 @@ void server_func(erpc::Nexus *nexus) {
   ServerContext c;
   erpc::Rpc<erpc::CTransport> rpc(nexus, static_cast<void *>(&c), 0 /* tid */,
                                   basic_sm_handler, phy_port);
-  flatbuffers::FlatBufferBuilder builder;
 
   s = std::string(FLAGS_resp_size,'a');
-  auto offset = builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
-  auto Req = Hello::CreateRequest(builder,offset);
-  builder.Finish(Req);
-  uint8_t* serialized_buffer = builder.GetBufferPointer();
-  auto serialized_size = builder.GetSize();
+  auto offset = c.builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
+  auto Req = Hello::CreateRequest(c.builder,offset);
+  c.builder.Finish(Req);
+  uint8_t* serialized_buffer = c.builder.GetBufferPointer();
+  auto serialized_size = c.builder.GetSize();
   t_size = serialized_size;
   rpc.set_pre_resp_msgbuf_size(serialized_size);
   c.rpc_ = &rpc;
-
+  c.builder.Clear();
   while (true) {
     rpc.run_event_loop(1000);
     if (ctrl_c_pressed == 1) break;
@@ -126,15 +126,15 @@ void connect_sessions(ClientContext &c) {
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
-  flatbuffers::FlatBufferBuilder builder(t_size);
 
   /* Serialize */
-  auto offset = builder.CreateVector((uint8_t*)s.c_str(),s.size());
-  auto Req = Hello::CreateRequest(builder,offset);
-  builder.Finish(Req);
-  uint8_t* serialized_buffer = builder.GetBufferPointer();
-  auto serialized_size = builder.GetSize();
+  auto offset = c.builder.CreateVector((uint8_t*)s.c_str(),s.size());
+  auto Req = Hello::CreateRequest(c.builder,offset);
+  c.builder.Finish(Req);
+  uint8_t* serialized_buffer = c.builder.GetBufferPointer();
+  auto serialized_size = c.builder.GetSize();
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
+  c.builder.Clear();
   /* Serialize */
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
@@ -169,20 +169,18 @@ void client_func(erpc::Nexus *nexus) {
   c.rpc_ = &rpc;
   c.req_size_ = FLAGS_req_size;
   s = std::string(FLAGS_req_size,'a');
-  flatbuffers::FlatBufferBuilder builder;
 
-  auto offset = builder.CreateVector((uint8_t*)s.c_str(),c.req_size_);
-  auto Req = Hello::CreateRequest(builder,offset);
-  builder.Finish(Req);
-  uint8_t* serialized_buffer = builder.GetBufferPointer();
-  auto serialized_size = builder.GetSize();
+  auto offset = c.builder.CreateVector((uint8_t*)s.c_str(),c.req_size_);
+  auto Req = Hello::CreateRequest(c.builder,offset);
+  c.builder.Finish(Req);
+  uint8_t* serialized_buffer = c.builder.GetBufferPointer();
+  auto serialized_size = c.builder.GetSize();
   t_size = serialized_size;
-
   // extra bytes for MetaData of Serialize
   c.req_msgbuf_ = rpc.alloc_msg_buffer_or_die(serialized_size);
   c.resp_msgbuf_ = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+64);
   connect_sessions(c);
-
+  c.builder.Clear();
   printf("Latency: Process %zu: Session connected. Starting work.\n",
          FLAGS_process_id);
   printf(
