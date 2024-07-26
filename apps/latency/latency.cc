@@ -76,8 +76,8 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   // erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_msgbuf,
   //                                                resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
-  req.clear_data();
-  resp.clear_data();
+  // req.clear_data();
+  // resp.clear_data();
 }
 
 void server_func(erpc::Nexus *nexus) {
@@ -124,7 +124,7 @@ inline void send_req(ClientContext &c) {
   // 序列化
   req.set_data(s.c_str());
   req.SerializeToArray(c.req_msgbuf_.buf_, req.ByteSizeLong());
-  resp.clear_data();
+  // resp.clear_data();
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
@@ -137,7 +137,7 @@ void app_cont_func(void *_context, void *) {
   resp.ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());  
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());
-  resp.clear_data();
+  // resp.clear_data();
   hdr_record_value(c->latency_hist_,
                    static_cast<int64_t>(req_lat_us * kAppLatFac));
   c->latency_samples_++;
