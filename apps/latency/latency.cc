@@ -29,6 +29,8 @@ DEFINE_uint64(req_size, 8, "Size of the server's RPC response in bytes");
 
 DEFINE_uint64(resp_size, 8, "Size of the server's RPC response in bytes");
 std::string s;
+Hello::Req req;
+Hello::Resp resp;
 class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
@@ -59,23 +61,23 @@ class ClientContext : public BasicAppContext {
 
   ~ClientContext() { hdr_close(latency_hist_); }
 };
-Hello::Req cur_req;
 
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
-  cur_req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
+  req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   // 序列化
   auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
-  Hello::Resp* resp = new Hello::Resp();
-  resp->set_data(s.c_str());
-  resp->SerializeToArray(resp_msgbuf->buf_, resp->ByteSizeLong());
+  resp.set_data(s.c_str());
+  resp.SerializeToArray(resp_msgbuf->buf_, resp.ByteSizeLong());
   // Hello::Resp resp;
   // resp.set_data(resp_msgbuf->buf_,FLAGS_resp_size);
   // erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_msgbuf,
   //                                                resp.ByteSizeLong());
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
+  req.Clear();
+  resp.Clear();
 }
 
 void server_func(erpc::Nexus *nexus) {
@@ -120,9 +122,9 @@ void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
   // 序列化
-  Hello::Req* req = new Hello::Req();
-  req->set_data(s.c_str());
-  req->SerializeToArray(c.req_msgbuf_.buf_, req->ByteSizeLong());
+  req.set_data(s.c_str());
+  req.SerializeToArray(c.req_msgbuf_.buf_, req.ByteSizeLong());
+  req.Clear();
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
                           nullptr);
@@ -132,11 +134,10 @@ void app_cont_func(void *_context, void *) {
   auto *c = static_cast<ClientContext *>(_context);
   // assert(c->resp_msgbuf_.get_data_size() == FLAGS_resp_size);
   // 反序列化
-  Hello::Resp* cur_resp = new Hello::Resp();
-  cur_resp->ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());  
+  resp.ParseFromArray(c->resp_msgbuf_.buf_,c->resp_msgbuf_.get_data_size());  
   const double req_lat_us =
       erpc::to_usec(erpc::rdtsc() - c->start_tsc_, c->rpc_->get_freq_ghz());
-
+  resp.Clear();
   hdr_record_value(c->latency_hist_,
                    static_cast<int64_t>(req_lat_us * kAppLatFac));
   c->latency_samples_++;
