@@ -68,7 +68,7 @@ class ClientContext : public BasicAppContext {
 std::string s;
 void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
-
+  c->builder.Clear();
   /* Deserialize Req */
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
@@ -126,6 +126,7 @@ void connect_sessions(ClientContext &c) {
 void app_cont_func(void *, void *);
 inline void send_req(ClientContext &c) {
   c.start_tsc_ = erpc::rdtsc();
+  c.builder.Clear();
 
   /* Serialize */
   auto offset = c.builder.CreateVector((uint8_t*)s.c_str(),s.size());
@@ -134,7 +135,6 @@ inline void send_req(ClientContext &c) {
   uint8_t* serialized_buffer = c.builder.GetBufferPointer();
   auto serialized_size = c.builder.GetSize();
   memcpy(c.req_msgbuf_.buf_, serialized_buffer, serialized_size);
-  c.builder.Clear();
   /* Serialize */
   c.rpc_->enqueue_request(c.session_num_vec_[0], kAppReqType,
                           &c.req_msgbuf_, &c.resp_msgbuf_, app_cont_func,
