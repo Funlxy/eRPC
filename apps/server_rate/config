@@ -1,9 +1,9 @@
 --test_ms 200000
 --sm_verbose 0
 --num_server_threads 1
---num_client_threads 1
---window_size 16
---req_size 8192
+--num_client_threads 2
+--window_size 1
+--req_size 1024
 --resp_size 1024
 --num_processes 2
 --numa_0_ports 0

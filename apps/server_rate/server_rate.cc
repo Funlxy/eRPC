@@ -1,5 +1,6 @@
 #include <gflags/gflags.h>
 #include <signal.h>
+#include <cstddef>
 #include <cstring>
 #include <string>
 #include "../apps_common.h"
@@ -20,6 +21,8 @@ DEFINE_uint64(num_client_threads, 1, "Number of threads per client machine");
 DEFINE_uint64(window_size, 1, "Outstanding requests per client");
 DEFINE_uint64(req_size, 64, "Size of request message in bytes");
 DEFINE_uint64(resp_size, 32, "Size of response message in bytes ");
+DEFINE_uint64(rps, 0, "Size of response message in bytes ");
+
 std::string s;
 volatile sig_atomic_t ctrl_c_pressed = 0;
 void ctrl_c_handler(int) { ctrl_c_pressed = 1; }
@@ -33,6 +36,7 @@ class ClientContext : public BasicAppContext {
  public:
   size_t num_resps = 0;
   size_t thread_id;
+  size_t rps = 0;
   erpc::ChronoTimer start_time[kAppMaxWindowSize];
   erpc::Latency latency;
   erpc::MsgBuffer req_msgbuf[kAppMaxWindowSize], resp_msgbuf[kAppMaxWindowSize];
@@ -107,7 +111,7 @@ void app_cont_func(void *_context, void *_ws_i) {
   assert(resp.data.size() == FLAGS_resp_size);
   c->latency.update(static_cast<size_t>(req_lat_us * kAppLatFac));
   c->num_resps++;
-
+  if(c->rps&&c->num_resps==c->rps) return;
   send_req(*c, ws_i);  // Clock the used window slot
 }
 
@@ -124,7 +128,7 @@ void create_sessions(ClientContext &c) {
   //   erpc::rt_assert(session_num >= 0, "Failed to create session");
   //   c.session_num_vec_.push_back(session_num);
   // }
-  int session_num = c.rpc_->create_session(server_uri,c.thread_id);
+  int session_num = c.rpc_->create_session(server_uri,0);
   erpc::rt_assert(session_num >= 0, "Failed to create session");
   c.session_num_vec_.push_back(session_num);
   while (c.num_sm_resps_ != 1) {
@@ -146,7 +150,12 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   c.thread_id = thread_id;
 
   create_sessions(c);
-
+  if(c.thread_id == FLAGS_num_client_threads-1){
+     printf("i am measure!\n");
+     c.rps = 0;
+  }else{
+    c.rps = FLAGS_rps;
+  }
   printf("Process %zu, thread %zu: Connected. Starting work.\n",
          FLAGS_process_id, thread_id);
   if (thread_id == 0) {
@@ -158,14 +167,14 @@ void client_func(erpc::Nexus *nexus, size_t thread_id) {
   for (size_t i = 0; i < FLAGS_window_size; i++) {
     c.req_msgbuf[i] = rpc.alloc_msg_buffer_or_die(req.ByteSizeLong());
     c.resp_msgbuf[i] = rpc.alloc_msg_buffer_or_die(FLAGS_resp_size+32);
-    send_req(c, i);
   }
 
   for (size_t i = 0; i < FLAGS_test_ms; i += 1000) {
+    send_req(c, 0);
     erpc::ChronoTimer start;
     rpc.run_event_loop(kAppEvLoopMs);  // 1 second
     if (ctrl_c_pressed == 1) break;
-
+    
     const double seconds = start.get_sec();
     printf("%zu: %.1f %.1f %.1f %.1f %.2f\n", thread_id,
            c.latency.perc(.5) / kAppLatFac, c.latency.perc(.05) / kAppLatFac,
