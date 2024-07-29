@@ -12,6 +12,7 @@
 #include "util/autorun_helpers.h"
 #include "util/numautils.h"
 #include "./protobuf/message.pb.h"
+#include "util/timer.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
 static constexpr bool kAppVerbose = false;    // Print debug info on datapath
 static constexpr size_t kAppReqType = 1;      // eRPC request type
@@ -34,6 +35,7 @@ Hello::Resp resp;
 class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
+  erpc::TscTimer ser_time;
 };
 
 class ClientContext : public BasicAppContext {
@@ -66,11 +68,13 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   const erpc::MsgBuffer *req_msgbuf = req_handle->get_req_msgbuf();
   // 反序列化
+  c->ser_time.start();
   req.ParseFromArray(req_msgbuf->buf_, req_msgbuf->get_data_size());
   // 序列化
   auto resp_msgbuf = &req_handle->pre_resp_msgbuf_;
   resp.set_data(s.c_str());
   resp.SerializeToArray(resp_msgbuf->buf_, resp.ByteSizeLong());
+  c->ser_time.stop();
   // Hello::Resp resp;
   // resp.set_data(resp_msgbuf->buf_,FLAGS_resp_size);
   // erpc::Rpc<erpc::CTransport>::resize_msg_buffer(resp_msgbuf,
@@ -98,6 +102,7 @@ void server_func(erpc::Nexus *nexus) {
     rpc.run_event_loop(1000);
     if (ctrl_c_pressed == 1) break;
   }
+  std::cout << "total ser/deser time(ns) : " << c.ser_time.avg_nsec(c.rpc_->get_freq_ghz()) << std::endl;
 }
 
 void connect_sessions(ClientContext &c) {
