@@ -18,6 +18,7 @@
 #include "util/autorun_helpers.h"
 #include "util/numautils.h"
 #include "./flatbuffers/meessage_generated.h"
+#include "util/timer.h"
 static constexpr size_t kAppEvLoopMs = 1000;  // Duration of event loop
 static constexpr bool kAppVerbose = false;    // Print debug info on datapath
 static constexpr size_t kAppReqType = 1;      // eRPC request type
@@ -37,7 +38,7 @@ class ServerContext : public BasicAppContext {
  public:
   erpc::FastRand fast_rand_;
   flatbuffers::FlatBufferBuilder builder;
-
+  erpc::TscTimer ser_time;
 };
 size_t t_size;
 class ClientContext : public BasicAppContext {
@@ -70,6 +71,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *c = static_cast<ServerContext *>(_context);
   c->builder.Clear();
   /* Deserialize Req */
+  c->ser_time.start();
   auto* Req = flatbuffers::GetRoot<Hello::Request>(req_handle->get_req_msgbuf()->buf_);
   // erpc::rt_assert(Req->name()->size()==FLAGS_req_size,"Check Req Size Error!\n");                                                 /* Serialize Resp */
   auto offset = c->builder.CreateVector((uint8_t*)s.c_str(),FLAGS_resp_size);
@@ -78,6 +80,7 @@ void req_handler(erpc::ReqHandle *req_handle, void *_context) {
   auto *serialized_buffer = c->builder.GetBufferPointer();
   auto serialized_size = c->builder.GetSize();
   memcpy(req_handle->pre_resp_msgbuf_.buf_,serialized_buffer, serialized_size);
+  c->ser_time.stop();
   c->rpc_->enqueue_response(req_handle, &req_handle->pre_resp_msgbuf_);
 }
 void server_func(erpc::Nexus *nexus) {
@@ -103,6 +106,7 @@ void server_func(erpc::Nexus *nexus) {
     rpc.run_event_loop(1000);
     if (ctrl_c_pressed == 1) break;
   }
+  std::cout << "total ser/deser time(ns) : " << c.ser_time.avg_nsec(c.rpc_->get_freq_ghz()) << std::endl;
 }
 
 void connect_sessions(ClientContext &c) {
